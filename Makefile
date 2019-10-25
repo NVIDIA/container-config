@@ -23,3 +23,6 @@ build:
 
 push:
 	docker push $(REGISTRY)/container-toolkit:$(TAG)
+
+test: build
+	bash -x $(CURDIR)/test/docker_test.sh $(CURDIR)/shared $(REGISTRY)/container-toolkit:$(TAG)

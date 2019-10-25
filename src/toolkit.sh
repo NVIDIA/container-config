@@ -1,5 +1,17 @@
 #! /bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 packages=("/usr/bin/nvidia-container-runtime" \
 	"/usr/bin/nvidia-container-toolkit" \
@@ -7,16 +19,47 @@ packages=("/usr/bin/nvidia-container-runtime" \
 	"/etc/nvidia-container-runtime/config.toml" \
 	"/usr/lib/x86_64-linux-gnu/libnvidia-container.so.1")
 
+toolkit::mount() {
+	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	log INFO "${FUNCNAME[0]} $*"
+
+	mkdir -p "${destination}" /nvidia
+	mount --rbind "/nvidia" "${destination}"
+	mount --make-private "${destination}"
+	mount --make-runbindable "${destination}"
+}
+
+toolkit::unmount() {
+	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	log INFO "${FUNCNAME[0]} $*"
+
+	if findmnt -r -o TARGET | grep "${destination}" > /dev/null; then
+		umount -l -R "${destination}" || true
+	fi
+}
 toolkit::install() {
 	local -r destination="${1:-"${TOOLKIT_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
-	mkdir -p "/nvidia" "${destination}"
-	mount --rbind "/nvidia" "${destination}"
-	mount --make-private "${destination}"
-	mount --make-runbindable "${destination}"
+	toolkit::install::packages "${destination}"
 
-	log INFO "Mount point ${destination} contains : $(ls -la ${destination})"
+	toolkit::setup::config "${destination}"
+	toolkit::setup::cli_binary "${destination}"
+	toolkit::setup::toolkit_binary "${destination}"
+	toolkit::setup::runtime_binary "${destination}"
+
+	# The runtime shim is still looking for the old binary
+	# Move to ${destination} to get expanded
+	# Make symlinks local so that they still refer to the
+	# local target when mounted on the host
+	cd "${destination}"
+	ln -s "./nvidia-container-toolkit" "${destination}/nvidia-container-runtime-hook"
+	ln -s "./libnvidia-container.so.1."* "${destination}/libnvidia-container.so.1"
+	cd -
+}
+
+toolkit::install::packages() {
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 
 	mkdir -p "${destination}"
 	mkdir -p "${destination}/.config/nvidia-container-runtime"
@@ -30,17 +73,8 @@ toolkit::install() {
 	mv "${destination}/config.toml" "${destination}/.config/nvidia-container-runtime/"
 }
 
-toolkit::uninstall() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
-	log INFO "${FUNCNAME[0]} $*"
-
-	if findmnt -r -o TARGET | grep "${destination}" > /dev/null; then
-		umount -l -R "${destination}" || true
-	fi
-}
-
 toolkit::setup::config() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 	local -r config_path="${destination}/.config/nvidia-container-runtime/config.toml"
 	log INFO "${FUNCNAME[0]} $*"
 
@@ -50,15 +84,15 @@ toolkit::setup::config() {
 }
 
 toolkit::setup::cli_binary() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
-	# Setup links to the real binaries to ensure that variables and configs
+	# setup links to the real binaries to ensure that variables and configs
 	# are pointing to the right path
 	mv "${destination}/nvidia-container-cli" \
 		"${destination}/nvidia-container-cli.real"
 
-	# Setup aliases so as to ensure that the path is correctly set
+	# setup aliases so as to ensure that the path is correctly set
 	cat <<- EOF | tr -s ' \t' > ${destination}/nvidia-container-cli
 		#! /bin/sh
 		LD_LIBRARY_PATH="${destination}" \
@@ -72,7 +106,7 @@ toolkit::setup::cli_binary() {
 }
 
 toolkit::setup::toolkit_binary() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
 	mv "${destination}/nvidia-container-toolkit" \
@@ -90,7 +124,7 @@ toolkit::setup::toolkit_binary() {
 }
 
 toolkit::setup::runtime_binary() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
 	mv "${destination}/nvidia-container-runtime" \
@@ -105,29 +139,4 @@ toolkit::setup::runtime_binary() {
 	EOF
 
 	chmod +x "${destination}/nvidia-container-runtime"
-}
-
-toolkit::setup() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
-	log INFO "Installing the NVIDIA Container Toolkit"
-
-	toolkit::install "${destination}"
-
-	toolkit::setup::config "${destination}"
-	toolkit::setup::cli_binary "${destination}"
-	toolkit::setup::toolkit_binary "${destination}"
-	toolkit::setup::runtime_binary "${destination}"
-
-	# The runtime shim is still looking for the old binary
-	# Move to ${destination} to get expanded
-	# Make symlinks local so that they still refer to the
-	# local target when mounted on the host
-	cd "${destination}"
-	ln -s "./nvidia-container-toolkit" \
-		"${destination}/nvidia-container-runtime-hook"
-	ln -s "./libnvidia-container.so.1."* \
-		"${destination}/libnvidia-container.so.1"
-	cd -
-
-	log INFO "Done setting up the NVIDIA Container Toolkit"
 }
