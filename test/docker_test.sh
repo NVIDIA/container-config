@@ -13,20 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euxo pipefail
+set -euo pipefail
 shopt -s lastpipe
 
 readonly basedir="$(dirname "$(realpath "$0")")"
-readonly dind_name="nvidia-container-runtime-dind"
+readonly dind="nvidia-container-runtime-dind"
 
 source "${basedir}/../src/common.sh"
 
 testing::cleanup() {
-	docker run -it --privileged -v "${shared_dir}:/shared" alpine:latest chmod -R 777 /shared
-	rm -rf "${shared_dir}" || true
+	docker kill "${dind}" || true &> /dev/null
+	docker rm "${dind}" || true &> /dev/null
 
-	docker kill "${dind_name}" || true &> /dev/null
-	docker rm "${dind_name}" || true &> /dev/null
+	mkdir -p "${shared_dir}/run"
+	docker run -it --privileged \
+		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
+		"${toolkit}" \
+		bash -x -c "/work/run.sh uninstall /run/nvidia"
+	rm -rf shared
 
 	return
 }
@@ -38,52 +42,56 @@ testing::setup() {
 	mkdir -p "${shared_dir}"/etc/nvidia-container-runtime
 }
 
-testing::dind() {
+testing::run::dind() {
 	# Docker creates /etc/docker when starting
 	# by default there isn't any config in this directory (even after the daemon starts)
 	docker run --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
-		--name "${dind_name}" -d docker:stable-dind -H unix://run/nvidia/docker.sock
+		--name "${dind}" -d docker:stable-dind $*
 }
 
-testing::dind::alpine() {
-	docker exec -it "${dind_name}" sh -c "$*"
+testing::exec::dind() {
+	docker exec -it "${dind}" sh -c "$*"
 }
 
-testing::toolkit() {
+testing::run::toolkit() {
 	# Share the volumes so that we can edit the config file and point to the new runtime
 	# Share the pid so that we can ask docker to reload its config
 	docker run -it --privileged \
-		--volumes-from "${dind_name}" \
-		--pid "container:${dind_name}" \
-		"${tool_image}" \
-		bash -x -c "/work/run.sh /run/nvidia /run/nvidia/docker.sock $*"
+		--volumes-from "${dind}" \
+		--pid "container:${dind}" \
+		"${toolkit}" \
+		bash -x -c "/work/run.sh run /run/nvidia /run/nvidia/docker.sock $*"
+}
+
+testing::uninstall::toolkit() {
+	# Share the volumes so that we can edit the config file and point to the new runtime
+	# Share the pid so that we can ask docker to reload its config
+	docker run -it --privileged \
+		--volumes-from "${dind}" \
+		--pid "container:${dind}" \
+		"${toolkit}" \
+		bash -x -c "/work/run.sh uninstall /run/nvidia $*"
 }
 
 testing::main() {
-	local -r tool_image="${1:-"nvidia/container-toolkit:docker19.03"}"
-
 	testing::setup
 
-	testing::dind
-	testing::toolkit --no-uninstall --no-daemon
+	testing::run::dind -H unix://run/nvidia/docker.sock
+	testing::run::toolkit --no-daemon
 
 	# Ensure that we haven't broken non GPU containers
-	testing::dind::alpine docker run -it alpine echo foo
+	with_retry 3 5s testing::exec::dind docker run -it alpine echo foo
 
-	# Uninstall
-	testing::toolkit --no-daemon
-	testing::dind::alpine test ! -f /etc/docker/daemon.json
-
-	toolkit_files="$(ls -A "${shared_dir}"/run/nvidia/toolkit)"
-	test ! -z "${toolkit_files}"
+	# Ensure toolkit dir is not empty
+	test ! -z "$(ls -A "${shared_dir}"/run/nvidia/toolkit)"
 
 	testing::cleanup
 }
 
 readonly shared_dir="${1:-"./shared"}"
-shift 1
+readonly toolkit="${2:-"UNKNOWN"}"
 
 trap testing::cleanup ERR
 

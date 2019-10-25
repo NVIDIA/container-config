@@ -1,10 +1,28 @@
 #! /bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 readonly DOCKER_CONFIG="/etc/docker/daemon.json"
 
 docker::info() {
 	local -r docker_socket="${1:-/var/run/docker.sock}"
+
+	if [[ ! -e ${docker_socket} ]]; then
+		log ERR "Docker socket doesn't exist"
+		exit 1
+	fi
+
 	curl --unix-socket "${docker_socket}" 'http://v1.40/info' | jq -r '.Runtimes.nvidia.path'
 }
 
@@ -83,7 +101,7 @@ docker::setup() {
 	local config=$(docker::config)
 	log INFO "current config: ${config}"
 
-	local -r nvidia_runtime="$(with_retry 5 2s docker::info "${docker_socket}")"
+	local -r nvidia_runtime="$(with_retry 5 5s docker::info "${docker_socket}")"
 
 	# This is a no-op
 	if [[ "${nvidia_runtime}" = "${destination}/nvidia-container-runtime" ]]; then
@@ -102,8 +120,6 @@ docker::setup() {
 
 	docker::config::backup
 	echo "${updated_config}" > /etc/docker/daemon.json
-
-	log INFO "after: $(docker::config | jq .)"
 	docker::config::refresh
 }
 
