@@ -29,7 +29,7 @@ testing::cleanup() {
 	docker run -it --privileged \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
 		"${toolkit}" \
-		bash -x -c "/work/run.sh uninstall /run/nvidia"
+		"uninstall" "--destination"  "/run/nvidia"
 	rm -rf shared
 
 	return
@@ -62,7 +62,8 @@ testing::run::toolkit() {
 		--volumes-from "${dind}" \
 		--pid "container:${dind}" \
 		"${toolkit}" \
-		bash -x -c "/work/run.sh run /run/nvidia /run/nvidia/docker.sock $*"
+		"run" "--destination" "/run/nvidia" \
+			"--docker-socket" "/run/nvidia/docker.sock" "$*"
 }
 
 testing::uninstall::toolkit() {
@@ -72,7 +73,7 @@ testing::uninstall::toolkit() {
 		--volumes-from "${dind}" \
 		--pid "container:${dind}" \
 		"${toolkit}" \
-		bash -x -c "/work/run.sh uninstall /run/nvidia $*"
+		"uninstall" "--destination"  "/run/nvidia" "$*"
 }
 
 testing::main() {

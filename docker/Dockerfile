@@ -20,5 +20,8 @@ WORKDIR /work
 COPY src/. .
 
 RUN chmod +x /work/run.sh
+RUN ln -s /work/run.sh nvidia-toolkit
 
-CMD ["bash"]
+ENV PATH=/work:$PATH
+
+ENTRYPOINT ["nvidia-toolkit"]

@@ -48,16 +48,22 @@ _init() {
 }
 
 main() {
-	local -r destination="${1:-"${RUN_DIR}"}/toolkit"
-	local -r docker_socket="${2:-"/var/run/docker.socket"}"
-
-	shift 2
+	local destination
+	local docker_socket
 
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--no-daemon)
 			DAEMON=1
 			shift
+			;;
+		--docker-socket|-d)
+			docker_socket="$2"
+			shift 2
+			;;
+		--destination|-o)
+			destination="$2"/toolkit
+			shift 2
 			;;
 		*)
 			echo "Unknown argument $1"
@@ -97,8 +103,21 @@ main() {
 }
 
 uninstall() {
-	local -r destination="${1:-"${RUN_DIR}"}/toolkit"
+	local destination="${1:-"${RUN_DIR}"}/toolkit"
 
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--destination|-o)
+			destination="$2"/toolkit
+			shift 2
+			;;
+		*)
+			echo "Unknown argument $1"
+			exit 1
+		esac
+	done
+
+	# Don't uninstall if another instance is already running
 	_init
 	trap "_shutdown" EXIT
 
