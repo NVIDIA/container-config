@@ -13,8 +13,8 @@ build_image:
     - apk add make
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
 
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" build
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" push
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" build
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" push
 
 release_image:
   stage: release
