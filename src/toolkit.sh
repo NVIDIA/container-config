@@ -19,24 +19,13 @@ packages=("/usr/bin/nvidia-container-runtime" \
 	"/etc/nvidia-container-runtime/config.toml" \
 	"/usr/lib/x86_64-linux-gnu/libnvidia-container.so.1")
 
-toolkit::mount() {
+toolkit::remove() {
 	local -r destination="${1:-"${TOOLKIT_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
-	mkdir -p "${destination}" /nvidia
-	mount --rbind "/nvidia" "${destination}"
-	mount --make-private "${destination}"
-	mount --make-runbindable "${destination}"
+	rm -rf "${destination}"
 }
 
-toolkit::unmount() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
-	log INFO "${FUNCNAME[0]} $*"
-
-	if findmnt -r -o TARGET | grep "${destination}" > /dev/null; then
-		umount -l -R "${destination}" || true
-	fi
-}
 toolkit::install() {
 	local -r destination="${1:-"${TOOLKIT_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"

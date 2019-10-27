@@ -72,8 +72,7 @@ main() {
 	trap "_shutdown" EXIT
 
 	# Uninstall previous installation of the toolkit
-	toolkit::unmount "${destination}" || exit 1
-	toolkit::mount "${destination}"
+	toolkit::remove "${destination}" || exit 1
 
 	toolkit::install "${destination}"
 	docker::setup "${destination}" "${docker_socket}"
@@ -104,7 +103,7 @@ uninstall() {
 	trap "_shutdown" EXIT
 
 	# Uninstall previous installation of the toolkit
-	toolkit::unmount "${destination}" || exit 1
+	toolkit::remove "${destination}" || exit 1
 	rm -rf "${destination}"
 }
 
