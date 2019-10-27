@@ -50,6 +50,7 @@ _init() {
 main() {
 	local destination
 	local docker_socket
+	local symlink
 
 	while [ $# -gt 0 ]; do
 		case "$1" in
@@ -63,6 +64,10 @@ main() {
 			;;
 		--destination|-o)
 			destination="$2"/toolkit
+			shift 2
+			;;
+		--symlink|-s)
+			symlink="$2"/nvidia-toolkit
 			shift 2
 			;;
 		*)
@@ -79,6 +84,10 @@ main() {
 
 	# Uninstall previous installation of the toolkit
 	toolkit::remove "${destination}" || exit 1
+
+	if [[ ! -z "$symlink" ]]; then
+		toolkit::symlink "${symlink}" "${destination}"
+	fi
 
 	toolkit::install "${destination}"
 	docker::setup "${destination}" "${docker_socket}"

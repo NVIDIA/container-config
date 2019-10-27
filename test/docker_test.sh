@@ -25,9 +25,9 @@ testing::cleanup() {
 	docker kill "${dind}" || true &> /dev/null
 	docker rm "${dind}" || true &> /dev/null
 
-	mkdir -p "${shared_dir}/run"
 	docker run -it --privileged \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
+		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia:shared" \
 		"${toolkit}" \
 		"uninstall" "--destination"  "/run/nvidia"
 	rm -rf shared
@@ -39,6 +39,7 @@ testing::setup() {
 	mkdir -p "${shared_dir}"
 	mkdir -p "${shared_dir}"/etc/docker
 	mkdir -p "${shared_dir}"/run/nvidia
+	mkdir -p "${shared_dir}"/usr/local/nvidia
 	mkdir -p "${shared_dir}"/etc/nvidia-container-runtime
 }
 
@@ -48,6 +49,7 @@ testing::run::dind() {
 	docker run --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
+		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia:shared" \
 		--name "${dind}" -d docker:stable-dind $*
 }
 
@@ -63,6 +65,7 @@ testing::run::toolkit() {
 		--pid "container:${dind}" \
 		"${toolkit}" \
 		"run" "--destination" "/run/nvidia" \
+			"--symlink" "/usr/local/nvidia" \
 			"--docker-socket" "/run/nvidia/docker.sock" "$*"
 }
 

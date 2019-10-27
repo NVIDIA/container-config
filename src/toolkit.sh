@@ -26,6 +26,15 @@ toolkit::remove() {
 	rm -rf "${destination}"
 }
 
+toolkit::symlink() {
+	local -r target="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${2:-"${TOOLKIT_DIR}"}"
+	log INFO "${FUNCNAME[0]} $*"
+
+	mkdir -p "${target}"
+	ln -s "${target}" "${destination}"
+}
+
 toolkit::install() {
 	local -r destination="${1:-"${TOOLKIT_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
