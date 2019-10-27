@@ -23,7 +23,7 @@ docker::info() {
 		exit 1
 	fi
 
-	curl --unix-socket "${docker_socket}" 'http://v1.40/info' | jq -r '.Runtimes.nvidia.path'
+	curl --unix-socket "${docker_socket}" 'http://v1.40/info'
 }
 
 docker::ensure::mounted() {
@@ -86,7 +86,7 @@ docker::config::restart() {
 }
 
 docker::config::get_nvidia_runtime() {
-	cat - | jq -r '.runtimes | keys[0]'
+	cat - | jq -r '.runtimes.nvidia'
 }
 
 docker::setup() {
@@ -97,25 +97,29 @@ docker::setup() {
 
 	local -r destination="${1:-/run/nvidia}"
 	local -r docker_socket="${2:-"/var/run/docker.socket"}"
+	local updated_config
 
-	local config=$(docker::config)
-	log INFO "current config: ${config}"
-
-	local -r nvidia_runtime="$(with_retry 5 5s docker::info "${docker_socket}")"
+	local -r config="$(with_retry 5 5s docker::info "${docker_socket}"))"
+	local -r nvidia_runtime="$(echo "${config}" | docker::config::get_nvidia_runtime)"
+	local -r default_runtime="$(echo "${config}" | jq -r '.DefaultRuntime')"
 
 	# This is a no-op
-	if [[ "${nvidia_runtime}" = "${destination}/nvidia-container-runtime" ]]; then
+	if [[ "${nvidia_runtime}" = "${destination}/nvidia-container-runtime" ]] && \
+		[[ "${default_runtime}" = "nvidia" ]]; then
 		log INFO "Noop, docker is arlready setup with the runtime container"
 		return
 	fi
 
-	# Append the nvidia runtime to the docker daemon's configuration
-	local updated_config=$(echo "${config}" | docker::config::add_runtime "${destination}")
-	local -r config_runtime=$(echo "${updated_config}" | docker::config::get_nvidia_runtime)
+	local -r config_file=$(docker::config)
+	log INFO "content of docker's config file : ${config_file}"
+
+	# First try to update the existing config file
+	updated_config=$(echo "${config_file}" | docker::config::add_runtime "${destination}")
 
 	# If there was an error while parsing the file catch it here
-	if [[ "${config_runtime}" != "nvidia" ]]; then
-		config=$(echo "{}" | docker::config::add_runtime "${destination}")
+	local -r config_runtime=$(echo "${updated_config}" | docker::config::get_nvidia_runtime)
+	if [[ "${config_runtime}" == "null" ]]; then
+		updated_config=$(echo "{}" | docker::config::add_runtime "${destination}")
 	fi
 
 	docker::config::backup
