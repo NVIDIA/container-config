@@ -48,16 +48,27 @@ _init() {
 }
 
 main() {
-	local -r destination="${1:-"${RUN_DIR}"}/toolkit"
-	local -r docker_socket="${2:-"/var/run/docker.socket"}"
-
-	shift 2
+	local destination
+	local docker_socket
+	local symlink
 
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		--no-daemon)
 			DAEMON=1
 			shift
+			;;
+		--docker-socket|-d)
+			docker_socket="$2"
+			shift 2
+			;;
+		--destination|-o)
+			destination="$2"/toolkit
+			shift 2
+			;;
+		--symlink|-s)
+			symlink="$2"/nvidia-toolkit
+			shift 2
 			;;
 		*)
 			echo "Unknown argument $1"
@@ -72,8 +83,11 @@ main() {
 	trap "_shutdown" EXIT
 
 	# Uninstall previous installation of the toolkit
-	toolkit::unmount "${destination}" || exit 1
-	toolkit::mount "${destination}"
+	toolkit::remove "${destination}" || exit 1
+
+	if [[ ! -z "$symlink" ]]; then
+		toolkit::symlink "${symlink}" "${destination}"
+	fi
 
 	toolkit::install "${destination}"
 	docker::setup "${destination}" "${docker_socket}"
@@ -98,13 +112,26 @@ main() {
 }
 
 uninstall() {
-	local -r destination="${1:-"${RUN_DIR}"}/toolkit"
+	local destination="${1:-"${RUN_DIR}"}/toolkit"
 
+	while [ $# -gt 0 ]; do
+		case "$1" in
+		--destination|-o)
+			destination="$2"/toolkit
+			shift 2
+			;;
+		*)
+			echo "Unknown argument $1"
+			exit 1
+		esac
+	done
+
+	# Don't uninstall if another instance is already running
 	_init
 	trap "_shutdown" EXIT
 
 	# Uninstall previous installation of the toolkit
-	toolkit::unmount "${destination}" || exit 1
+	toolkit::remove "${destination}" || exit 1
 	rm -rf "${destination}"
 }
 
