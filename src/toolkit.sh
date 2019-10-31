@@ -13,6 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -euxo pipefail
+shopt -s lastpipe
+
+readonly basedir="$(dirname "$(realpath "$0")")"
+source "${basedir}/common.sh"
+
 packages=("/usr/bin/nvidia-container-runtime" \
 	"/usr/bin/nvidia-container-toolkit" \
 	"/usr/bin/nvidia-container-cli" \
@@ -33,27 +39,6 @@ toolkit::symlink() {
 
 	mkdir -p "${target}"
 	ln -s "${target}" "${destination}"
-}
-
-toolkit::install() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
-	log INFO "${FUNCNAME[0]} $*"
-
-	toolkit::install::packages "${destination}"
-
-	toolkit::setup::config "${destination}"
-	toolkit::setup::cli_binary "${destination}"
-	toolkit::setup::toolkit_binary "${destination}"
-	toolkit::setup::runtime_binary "${destination}"
-
-	# The runtime shim is still looking for the old binary
-	# Move to ${destination} to get expanded
-	# Make symlinks local so that they still refer to the
-	# local target when mounted on the host
-	cd "${destination}"
-	ln -s "./nvidia-container-toolkit" "${destination}/nvidia-container-runtime-hook"
-	ln -s "./libnvidia-container.so.1."* "${destination}/libnvidia-container.so.1"
-	cd -
 }
 
 toolkit::install::packages() {
@@ -138,3 +123,63 @@ toolkit::setup::runtime_binary() {
 
 	chmod +x "${destination}/nvidia-container-runtime"
 }
+
+toolkit::usage() {
+	cat >&2 <<EOF
+Usage: $0 COMMAND [ARG...]
+
+Commands:
+  install DESTINATION [-s | --symlink LINK_NAME]
+
+Description
+  -s, --symlink	On some distribution it is necessary to install the toolkit at a different location than the one pointed to by destination (e.g: The parent folder is noexec). '--symlink' allows installing to a different directory without messing the paths (e.g: install in /usr/local/nvidia/toolkit but have all paths point to /run/nvidia/toolkit).
+EOF
+}
+
+toolkit::install() {
+	local destination="$1/toolkit"; shift
+	local symlink
+
+	options=$(getopt -l symlink: -o s: -- "$@")
+	if [[ "$?" -ne 0 ]]; then toolkit::usage; exit 1; fi
+
+	# set options to positional parameters
+	eval set -- "${options}"
+	for opt in ${options}; do
+		case "${opt}" in
+		-s | --symlink) symlink="$2/toolkit"; shift 2;;
+		--) shift; break;;
+		esac
+	done
+
+	if [[ "$#" -ne 0 ]]; then toolkit::usage; exit 1; fi
+
+	# Uninstall previous installation of the toolkit
+	toolkit::remove "${destination}" || exit 1
+
+	if [[ ! -z "$symlink" ]]; then
+		toolkit::remove "${symlink}" || exit 1
+		toolkit::symlink "${symlink}" "${destination}"
+	fi
+
+	log INFO "${FUNCNAME[0]} $*"
+
+	toolkit::install::packages "${destination}"
+
+	toolkit::setup::config "${destination}"
+	toolkit::setup::cli_binary "${destination}"
+	toolkit::setup::toolkit_binary "${destination}"
+	toolkit::setup::runtime_binary "${destination}"
+
+	# The runtime shim is still looking for the old binary
+	# Move to ${destination} to get expanded
+	# Make symlinks local so that they still refer to the
+	# local target when mounted on the host
+	cd "${destination}"
+	ln -s "./nvidia-container-toolkit" "${destination}/nvidia-container-runtime-hook"
+	ln -s "./libnvidia-container.so.1."* "${destination}/libnvidia-container.so.1"
+	cd -
+}
+
+if [ $# -eq 0 ]; then toolkit::usage; exit 1; fi
+toolkit::install "$@"
