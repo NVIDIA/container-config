@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+readonly RUN_DIR="/run/nvidia"
+readonly TOOLKIT_DIR="${RUN_DIR}/toolkit"
+readonly PID_FILE="${RUN_DIR}/toolkit.pid"
+
 # shellcheck disable=SC2015
 [ -t 2 ] && readonly LOG_TTY=1 || readonly LOG_NO_TTY=1
 

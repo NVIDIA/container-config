@@ -12,6 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+set -euxo pipefail
+shopt -s lastpipe
+
+readonly basedir="$(dirname "$(realpath "$0")")"
+source "${basedir}/common.sh"
 
 readonly DOCKER_CONFIG="/etc/docker/daemon.json"
 
@@ -27,22 +32,13 @@ docker::info() {
 }
 
 docker::ensure::mounted() {
-	mount | grep /etc/docker
+	local -r directory="$1"
+	mount | grep "${directory}"
 	if [[ ! $? ]]; then
-		log ERROR "Docker directory isn't mounted in container"
+		log ERROR "Directory ${directory} isn't mounted in container"
 		log ERROR "Ensure that you have correctly mounted the docker directoy"
 		exit 1
 	fi
-}
-
-docker::ensure::config_dir() {
-	# Ensure that the docker config path exists
-	if [[ ! -d "/etc/docker" ]]; then
-		log ERROR "Docker directory doesn't exist in container"
-		log ERROR "Ensure that you have correctly mounted the docker directoy"
-		exit 1
-	fi
-
 }
 
 docker::config::backup() {
@@ -89,31 +85,62 @@ docker::config::get_nvidia_runtime() {
 	cat - | jq -r '.runtimes.nvidia'
 }
 
-docker::setup() {
-	docker::ensure::mounted
-	docker::ensure::config_dir
-
-	log INFO "Setting up the configuration for the docker daemon"
-
-	local -r destination="${1:-/run/nvidia}"
-	local -r docker_socket="${2:-"/var/run/docker.socket"}"
-	local updated_config
+docker::config::is_configured() {
+	local -r destination="${1}"
+	local -r docker_socket="${2}"
 
 	local -r config="$(with_retry 5 5s docker::info "${docker_socket}"))"
 	local -r nvidia_runtime="$(echo "${config}" | docker::config::get_nvidia_runtime)"
 	local -r default_runtime="$(echo "${config}" | jq -r '.DefaultRuntime')"
 
+	[[ "${nvidia_runtime}" = "${destination}/nvidia-container-runtime" ]] && \
+		[[ "${default_runtime}" = "nvidia" ]];
+}
+
+toolkit::usage() {
+	cat >&2 <<EOF
+Usage: $0 COMMAND [ARG...]
+
+Commands:
+  setup DESTINATION [-s | --socket DOCKER_SOCKET_PATH]
+  cleanup
+
+Description
+  -s, --socket	The path to the docker socket
+EOF
+}
+
+
+docker::setup() {
+	if [ $# -eq 0 ]; then docker::usage; exit 1; fi
+
+	local -r destination="${1}/toolkit"
+	local docker_socket="/var/run/docker.sock"
+
+	options=$(getopt -l socket: -o s: -- "$@")
+	if [[ "$?" -ne 0 ]]; then toolkit::usage; exit 1; fi
+
+	# set options to positional parameters
+	eval set -- "${options}"
+	for opt in ${options}; do
+		case "${opt}" in
+		-s | --socket) docker_socket="$2"; shift 2;;
+		--) shift; break;;
+		esac
+	done
+
+	# Make some checks
+	docker::ensure::mounted /etc/docker
+
 	# This is a no-op
-	if [[ "${nvidia_runtime}" = "${destination}/nvidia-container-runtime" ]] && \
-		[[ "${default_runtime}" = "nvidia" ]]; then
+	if docker::config::is_configured "${docker_socket}" "${docker_socket}"; then
 		log INFO "Noop, docker is arlready setup with the runtime container"
 		return
 	fi
 
-	local -r config_file=$(docker::config)
-	log INFO "content of docker's config file : ${config_file}"
-
 	# First try to update the existing config file
+	local updated_config
+	local -r config_file=$(docker::config)
 	updated_config=$(echo "${config_file}" | docker::config::add_runtime "${destination}")
 
 	# If there was an error while parsing the file catch it here
@@ -127,7 +154,15 @@ docker::setup() {
 	docker::config::refresh
 }
 
-docker::uninstall() {
-	local -r docker_socket="${1:-"/var/run/docker.socket"}"
+docker::cleanup() {
 	docker::config::restore
 }
+
+if [ $# -eq 0 ]; then docker::usage; exit 1; fi
+
+command=$1; shift
+case "${command}" in
+	setup)   docker::setup "$@";;
+	cleanup) docker::cleanup "$@";;
+	*)       docker::usage;;
+esac
