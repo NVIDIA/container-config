@@ -22,7 +22,7 @@ release_image:
     - tags
   script:
     - apk add make bash
-    - docker login -u "${REGISTRY_USER}" -p "${CI_REGISTRY_TOKEN}"
+    - docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}"
 
     - make REGISTRY="nvidia" TAG="${CI_COMMIT_TAG}" build
     - make REGISTRY="nvidia" TAG="${CI_COMMIT_TAG}" push
