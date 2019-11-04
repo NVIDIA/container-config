@@ -70,3 +70,15 @@ with_retry() {
 
 	return 1
 }
+
+ensure::mounted() {
+	local -r directory="$1"
+
+	mount | grep "${directory}" &> /dev/null
+	if [[ ! $? ]]; then
+		log ERROR "Directory ${directory} isn't mounted in container"
+		log ERROR "Ensure that you have correctly mounted the docker directoy"
+		exit 1
+	fi
+}
+

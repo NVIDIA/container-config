@@ -31,16 +31,6 @@ docker::info() {
 	curl --unix-socket "${docker_socket}" 'http://v1.40/info'
 }
 
-docker::ensure::mounted() {
-	local -r directory="$1"
-	mount | grep "${directory}"
-	if [[ ! $? ]]; then
-		log ERROR "Directory ${directory} isn't mounted in container"
-		log ERROR "Ensure that you have correctly mounted the docker directoy"
-		exit 1
-	fi
-}
-
 docker::config::backup() {
 	if [[ -f "${DOCKER_CONFIG}" ]]; then
 		mv "${DOCKER_CONFIG}" "${DOCKER_CONFIG}.bak"
@@ -130,7 +120,7 @@ docker::setup() {
 	done
 
 	# Make some checks
-	docker::ensure::mounted /etc/docker
+	ensure::mounted /etc/docker
 
 	# This is a no-op
 	if docker::config::is_configured "${docker_socket}" "${docker_socket}"; then
