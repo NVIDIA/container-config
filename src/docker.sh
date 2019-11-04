@@ -25,7 +25,7 @@ docker::info() {
 
 	if [[ ! -e ${docker_socket} ]]; then
 		log ERR "Docker socket doesn't exist"
-		exit 1
+		return 1
 	fi
 
 	curl --unix-socket "${docker_socket}" 'http://v1.40/info'
