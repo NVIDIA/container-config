@@ -89,7 +89,7 @@ docker::config::is_configured() {
 	local -r destination="${1}"
 	local -r docker_socket="${2}"
 
-	local -r config="$(with_retry 5 5s docker::info "${docker_socket}"))"
+	local -r config="$(with_retry 5 5s docker::info "${docker_socket}")"
 	local -r nvidia_runtime="$(echo "${config}" | docker::config::get_nvidia_runtime)"
 	local -r default_runtime="$(echo "${config}" | jq -r '.DefaultRuntime')"
 
