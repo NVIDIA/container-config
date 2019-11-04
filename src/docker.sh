@@ -104,7 +104,7 @@ EOF
 docker::setup() {
 	if [ $# -eq 0 ]; then docker::usage; exit 1; fi
 
-	local -r destination="${1}/toolkit"
+	local -r destination="${1}/toolkit"; shift
 	local docker_socket="/var/run/docker.sock"
 
 	options=$(getopt -l socket: -o s: -- "$@")
