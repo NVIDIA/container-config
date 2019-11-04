@@ -133,7 +133,7 @@ docker::setup() {
 	docker::ensure::mounted /etc/docker
 
 	# This is a no-op
-	if docker::config::is_configured "${docker_socket}" "${docker_socket}"; then
+	if docker::config::is_configured "${destination}" "${docker_socket}"; then
 		log INFO "Noop, docker is arlready setup with the runtime container"
 		return
 	fi
