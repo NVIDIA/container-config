@@ -22,6 +22,7 @@ source "${basedir}/common.sh"
 
 source "${basedir}/toolkit_test.sh"
 source "${basedir}/docker_test.sh"
+source "${basedir}/crio_test.sh"
 
 CLEANUP=1
 
@@ -64,7 +65,7 @@ done
 
 trap '[ "$?" -eq 0 ] || ("$CLEANUP" && testing::cleanup)' ERR EXIT
 
-for test_case in "toolkit" "docker"; do
+for test_case in "toolkit" "docker" "crio"; do
 	testing::cleanup
 	testing::setup
 
