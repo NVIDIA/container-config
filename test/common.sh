@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-dind="container-config-dind-ctr-name"
+readonly dind="container-config-dind-ctr-name"
 
 testing::cleanup() {
 	if [[ -e "${shared_dir}" ]]; then
@@ -28,15 +28,17 @@ testing::cleanup() {
 
 testing::setup() {
 	mkdir -p "${shared_dir}"
-	mkdir -p "${shared_dir}"/etc/docker
-	mkdir -p "${shared_dir}"/run/nvidia
-	mkdir -p "${shared_dir}"/usr/local/nvidia
-	mkdir -p "${shared_dir}"/etc/nvidia-container-runtime
+	mkdir -p "${shared_dir}/etc/docker"
+	mkdir -p "${shared_dir}/run/nvidia"
+	mkdir -p "${shared_dir}/usr/local/nvidia"
+	mkdir -p "${shared_dir}/etc/nvidia-container-runtime"
+	mkdir -p "${shared_dir}/${CRIO_HOOKS_DIR}"
 }
 
 testing::run::toolkit() {
 	docker run -it --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
+		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia:shared" \
 		--pid "container:${dind}" \
@@ -49,6 +51,7 @@ testing::run::toolkit() {
 testing::run::toolkit::shell() {
 	docker run -it --privileged --entrypoint sh \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
+		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia:shared" \
 		"${toolkit}" "-c" "$*"
