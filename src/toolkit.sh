@@ -37,7 +37,7 @@ toolkit::symlink() {
 	local -r destination="${2:-"${TOOLKIT_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
-	mkdir -p "${target}"
+	mkdir -p "${target}" "$(dirname ${destination})"
 	ln -s "${target}" "${destination}"
 }
 
