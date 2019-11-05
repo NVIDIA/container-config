@@ -19,9 +19,6 @@ shopt -s lastpipe
 readonly basedir="$(dirname "$(realpath "$0")")"
 source "${basedir}/common.sh"
 
-readonly crio_hooks_dir="/usr/share/containers/oci/hooks.d"
-readonly hook_filename="oci-nvidia-hook.json"
-
 crio::usage() {
 	cat >&2 <<EOF
 Usage: $0 COMMAND [ARG...]
@@ -31,7 +28,7 @@ Commands:
   cleanup [-d | --hooks-dir HOOKS_DIRECTORY]
 
 Description
-  -d, --hooks-dir	The path to the hooks directory. By default it points to '${crio_hooks_dir}'.
+  -d, --hooks-dir	The path to the hooks directory. By default it points to '${CRIO_HOOKS_DIR}'.
   -c, --no-check	Specify this option if you want to disable the different checks.
   DESTINATION		The path where the toolkit directory resides (e.g: /run/nvidia). "/toolkit" will be appended to that path. This path must not contain a '#' character.
 EOF
@@ -41,7 +38,7 @@ EOF
 crio::setup() {
 	if [ $# -eq 0 ]; then crio::usage; exit 1; fi
 
-	local hooksd="${crio_hooks_dir}"
+	local hooksd="${CRIO_HOOKS_DIR}"
 	local ensure="TRUE"
 	local -r destination="${1}/toolkit"; shift
 
@@ -67,12 +64,12 @@ crio::setup() {
 	fi
 
 	mkdir -p ${hooksd}
-	cp "${basedir}/${hook_filename}" "${hooksd}"
-	sed -i "s#@DESTINATION@#${destination}#" "${hooksd}/${hook_filename}"
+	cp "${basedir}/${CRIO_HOOK_FILENAME}" "${hooksd}"
+	sed -i "s#@DESTINATION@#${destination}#" "${hooksd}/${CRIO_HOOK_FILENAME}"
 }
 
 crio::cleanup() {
-	local hooksd="${crio_hooks_dir}"
+	local hooksd="${CRIO_HOOKS_DIR}"
 	if [ $# -ne 0 ]; then crio::usage; exit 1; fi
 
 	options=$(getopt -l hooks-dir: -o d: -- "$@")
@@ -89,7 +86,7 @@ crio::cleanup() {
 
 	# Make some checks
 	ensure::mounted ${hooksd}
-	rm -f "${hooksd}/${hook_filename}"
+	rm -f "${hooksd}/${CRIO_HOOK_FILENAME}"
 }
 
 if [ $# -eq 0 ]; then docker::usage; exit 1; fi

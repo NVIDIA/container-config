@@ -16,6 +16,9 @@
 readonly RUN_DIR="/run/nvidia"
 readonly TOOLKIT_DIR="${RUN_DIR}/toolkit"
 readonly PID_FILE="${RUN_DIR}/toolkit.pid"
+readonly CRIO_HOOKS_DIR="/usr/share/containers/oci/hooks.d"
+readonly CRIO_HOOK_FILENAME="oci-nvidia-hook.json"
+
 
 # shellcheck disable=SC2015
 [ -t 2 ] && readonly LOG_TTY=1 || readonly LOG_NO_TTY=1
