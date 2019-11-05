@@ -9,7 +9,7 @@
 DOCKERFILE ?= $(CURDIR)/Dockerfile
 
 REGISTRY ?= nvidia
-TAG      ?= 1.0.0-alpha1
+TAG      ?= latest
 
 
 ##### Public rules #####
