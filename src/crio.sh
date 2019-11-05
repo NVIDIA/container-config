@@ -33,6 +33,7 @@ Commands:
 Description
   -d, --hooks-dir	The path to the hooks directory. By default it points to '${crio_hooks_dir}'.
   -c, --no-check	Specify this option if you want to disable the different checks.
+  DESTINATION		The path where the toolkit directory resides (e.g: /run/nvidia). "/toolkit" will be appended to that path. This path must not contain a '#' character.
 EOF
 }
 
@@ -59,6 +60,11 @@ crio::setup() {
 
 	# Make some checks
 	[[ "${ensure}" = "TRUE" ]] && ensure::mounted ${hooksd}
+
+	if [[ "${destination}" == *\#* ]]; then
+		log ERROR "DESTINATION '${destination}' contains forbidden character '#'"
+		exit 1;
+	fi
 
 	mkdir -p ${hooksd}
 	cp "${basedir}/${hook_filename}" "${hooksd}"
