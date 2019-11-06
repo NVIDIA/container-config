@@ -43,14 +43,16 @@ _init() {
 
 usage() {
 	cat >&2 <<EOF
-Usage: $0 DESTINATION [-n | --no-daemon]
+Usage: $0 DESTINATION [-n | --no-daemon] [-t | --toolkit-args TOOLKIT_ARGS] [-r | --runtime-args RUNTIME_ARGS]
 
 Environment Variables:
-  TOOLKIT_ARGS	Arguments to pass to the 'toolkit' command
-  RUNTIME_ARGS	Arguments to pass to the 'docker', 'crio' or 'containerd' command
+  TOOLKIT_ARGS	Arguments to pass to the 'toolkit' command.
+  RUNTIME_ARGS	Arguments to pass to the 'docker', 'crio' or 'containerd' command.
 
 Description
   -n, --no-daemon	Set this flag if the run file should terminate immediatly after setting up the runtime. Note that no cleanup will be performed.
+  -t, --toolkit-args	Arguments to pass to the 'toolkit' command.
+  -r, --runtime-args	Arguments to pass to the 'docker', 'crio' or 'containerd' command.
 EOF
 }
 
@@ -59,10 +61,10 @@ main() {
 	local -r destination="${1}"
 	shift
 
-	options=$(getopt -l no-daemon -o n -- "$@")
 	TOOLKIT_ARGS=${TOOLKIT_ARGS:-""}
 	RUNTIME_ARGS=${RUNTIME_ARGS:-""}
 
+	options=$(getopt -l no-daemon,toolkit-args:,runtime-args: -o nt:r: -- "$@")
 	if [[ "$?" -ne 0 ]]; then usage; exit 1; fi
 
 	# set options to positional parameters
@@ -70,6 +72,8 @@ main() {
 	for opt in ${options}; do
 		case "${opt}" in
 		n | --no-daemon) DAEMON=1; shift;;
+		t | --toolkit-args) TOOLKIT_ARGS="$2"; shift 2;;
+		r | --runtime-args) RUNTIME_ARGS="$2"; shift 2;;
 		--) shift; break;;
 		esac
 	done
