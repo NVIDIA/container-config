@@ -60,6 +60,9 @@ main() {
 	shift
 
 	options=$(getopt -l no-daemon -o n -- "$@")
+	TOOLKIT_ARGS=${TOOLKIT_ARGS:-""}
+	RUNTIME_ARGS=${RUNTIME_ARGS:-""}
+
 	if [[ "$?" -ne 0 ]]; then usage; exit 1; fi
 
 	# set options to positional parameters
