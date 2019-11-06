@@ -35,7 +35,7 @@ testing::setup() {
 	mkdir -p "${shared_dir}/${CRIO_HOOKS_DIR}"
 }
 
-testing::run::toolkit() {
+testing::docker_run::toolkit() {
 	docker run -it --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
@@ -48,7 +48,7 @@ testing::run::toolkit() {
 			"--docker-socket" "/run/nvidia/docker.sock" "$*"
 }
 
-testing::run::toolkit::shell() {
+testing::docker_run::toolkit::shell() {
 	docker run -it --privileged --entrypoint sh \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-testing::run::dind() {
+testing::dind() {
 	# Docker creates /etc/docker when starting
 	# by default there isn't any config in this directory (even after the daemon starts)
 	docker run --privileged \
@@ -23,11 +23,11 @@ testing::run::dind() {
 		--name "${dind}" -d docker:stable-dind $*
 }
 
-testing::exec::dind() {
+testing::dind() {
 	docker exec -it "${dind}" sh -c "$*"
 }
 
-testing::run::dind::toolkit() {
+testing::dind::toolkit() {
 	# Share the volumes so that we can edit the config file and point to the new runtime
 	# Share the pid so that we can ask docker to reload its config
 	docker run -it --privileged \
@@ -39,8 +39,8 @@ testing::run::dind::toolkit() {
 }
 
 testing::docker::main() {
-	testing::run::dind -H unix://run/nvidia/docker.sock
-	testing::run::dind::toolkit --no-daemon
+	testing::dind -H unix://run/nvidia/docker.sock
+	testing::dind::toolkit --no-daemon
 
 	# Ensure that we haven't broken non GPU containers
 	with_retry 3 5s testing::exec::dind docker run -it alpine echo foo
