@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+set -eEuo pipefail
 shopt -s lastpipe
 
 readonly basedir="$(dirname "$(realpath "$0")")"
@@ -23,7 +23,7 @@ source "${basedir}/common.sh"
 source "${basedir}/toolkit_test.sh"
 source "${basedir}/docker_test.sh"
 
-CLEANUP=1
+CLEANUP=true
 
 usage() {
 	cat >&2 <<EOF
@@ -57,12 +57,12 @@ if [[ "$?" -ne 0 ]]; then usage; exit 1; fi
 eval set -- "${options}"
 for opt in ${options}; do
 	case "${opt}" in
-	c | --no-cleanup-on-error) DAEMON=1; shift;;
+	c | --no-cleanup-on-error) CLEANUP=false; shift;;
 	--) shift; break;;
 	esac
 done
 
-trap '[ "$?" -eq 0 ] || ("$CLEANUP" && testing::cleanup)' ERR EXIT
+trap '"$CLEANUP" && testing::cleanup' ERR
 
 for test_case in "toolkit" "docker"; do
 	testing::cleanup
