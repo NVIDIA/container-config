@@ -45,6 +45,10 @@ testing::docker::main() {
 	# Ensure that we haven't broken non GPU containers
 	with_retry 3 5s testing::exec::dind docker run -t alpine echo foo
 
+	# Fixup symlink to point to the shared directory
+	rm -f "${shared_dir}/run/nvidia/toolkit"
+	ln -sf "${shared_dir}/usr/local/nvidia/toolkit" "${shared_dir}/run/nvidia/toolkit"
+
 	# Ensure toolkit dir is not empty
 	test ! -z "$(ls -A "${shared_dir}"/run/nvidia/toolkit)"
 }
