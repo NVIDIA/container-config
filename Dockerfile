@@ -23,6 +23,7 @@ RUN chmod +x /work/run.sh /work/toolkit.sh /work/docker.sh
 
 RUN ln -s /work/run.sh nvidia-toolkit && \
 	ln -s /work/toolkit.sh toolkit && \
+	ln -s /work/crio.sh crio && \
 	ln -s /work/docker.sh docker
 
 ENV PATH=/work:$PATH
