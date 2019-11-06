@@ -18,8 +18,8 @@ testing::dind() {
 	# by default there isn't any config in this directory (even after the daemon starts)
 	docker run --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
-		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
-		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia:shared" \
+		-v "${shared_dir}/run/nvidia:/run/nvidia" \
+		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
 		--name "${dind}" -d docker:stable-dind $*
 }
 
