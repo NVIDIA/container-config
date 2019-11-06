@@ -36,7 +36,7 @@ testing::setup() {
 }
 
 testing::docker_run::toolkit() {
-	docker run -it --privileged \
+	docker run -t --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \
@@ -49,7 +49,7 @@ testing::docker_run::toolkit() {
 }
 
 testing::docker_run::toolkit::shell() {
-	docker run -it --privileged --entrypoint sh \
+	docker run -t --privileged --entrypoint sh \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia:shared" \

@@ -20,14 +20,14 @@ testing::crio::main() {
 }
 
 testing::crio::bad_input() {
-	if testing::run::toolkit::shell 'crio setup /run/\#nvidia/ --no-check'; then
+	if testing::docker_run::toolkit::shell 'crio setup /run/\#nvidia/ --no-check'; then
 		log ERROR "Expected an error when DESTINATION contains a '#'"
 		exit 1
 	fi
 }
 
 testing::crio::hook_created() {
-	testing::run::toolkit::shell 'crio setup /run/nvidia/ --no-check'
+	testing::docker_run::toolkit::shell 'crio setup /run/nvidia/ --no-check'
 
 	test ! -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
 
@@ -37,7 +37,7 @@ testing::crio::hook_created() {
 }
 
 testing::crio::hook_cleanup() {
-	testing::run::toolkit::shell 'crio cleanup --no-check'
+	testing::docker_run::toolkit::shell 'crio cleanup --no-check'
 
 	test -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
 }
