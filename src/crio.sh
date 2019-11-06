@@ -70,9 +70,11 @@ crio::setup() {
 
 crio::cleanup() {
 	local hooksd="${CRIO_HOOKS_DIR}"
-	if [ $# -ne 0 ]; then crio::usage; exit 1; fi
+	local ensure="TRUE"
 
-	options=$(getopt -l hooks-dir: -o d: -- "$@")
+	if [ $# -eq 0 ]; then crio::usage; exit 1; fi
+
+	options=$(getopt -l hooks-dir:,no-check -o d:c -- "$@")
 	if [[ "$?" -ne 0 ]]; then crio::usage; exit 1; fi
 
 	# set options to positional parameters
@@ -80,12 +82,14 @@ crio::cleanup() {
 	for opt in ${options}; do
 		case "${opt}" in
 		-d | --hooks-dir) hooksd="$2"; shift 2;;
+		-c | --no-check) ensure="FALSE"; shift;;
 		--) shift; break;;
 		esac
 	done
 
 	# Make some checks
-	ensure::mounted ${hooksd}
+	[[ "${ensure}" = "TRUE" ]] && ensure::mounted ${hooksd}
+
 	rm -f "${hooksd}/${CRIO_HOOK_FILENAME}"
 }
 
