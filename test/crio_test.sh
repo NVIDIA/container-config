@@ -31,7 +31,7 @@ testing::crio::hook_created() {
 
 	test ! -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
 
-	cat "${CRIO_HOOKS_DIR}/${CRIO_HOOK_FILENAME}" | \
+	cat "${shared_dir}/${CRIO_HOOKS_DIR}/${CRIO_HOOK_FILENAME}" | \
 		jq -r '.hook.path' | grep -q "/run/nvidia"
 	test $? -eq 0
 }
