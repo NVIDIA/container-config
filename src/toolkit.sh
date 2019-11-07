@@ -138,7 +138,7 @@ EOF
 
 toolkit::install() {
 	local destination="$1/toolkit"; shift
-	local symlink
+	local symlink=""
 
 	options=$(getopt -l symlink: -o s: -- "$@")
 	if [[ "$?" -ne 0 ]]; then toolkit::usage; exit 1; fi
