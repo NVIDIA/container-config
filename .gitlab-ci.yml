@@ -5,6 +5,7 @@ services:
 
 stages:
   - build
+  - test
   - release
 
 build_image:
@@ -15,6 +16,16 @@ build_image:
 
     - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" build
     - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" push
+
+integration:
+  stage: test
+  services:
+    - docker:dind
+  image: docker:stable
+  script:
+    - apk add make bash jq
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" test
+
 
 release_image:
   stage: release
