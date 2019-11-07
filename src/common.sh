@@ -84,3 +84,14 @@ ensure::mounted() {
 	fi
 }
 
+ensure::oneof() {
+	local -r val=$(cat -)
+	for match in "$@"; do
+		if [[ "${val}" == "${match}" ]]; then
+			return 0
+		fi
+	done
+
+	log ERROR "Value '${val}' doesn't match any of $@"
+	exit 1
+}
