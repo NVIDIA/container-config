@@ -17,7 +17,7 @@ testing::toolkit::main() {
 	local -r uid=$(id -u)
 	local -r gid=$(id -g)
 
-	testing::run::toolkit::shell 'toolkit /run/nvidia/ --symlink /usr/local/nvidia'
+	testing::docker_run::toolkit::shell 'toolkit /run/nvidia/ --symlink /usr/local/nvidia'
 	docker run -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
 
 	# Ensure creation of the symlink and fix it up for read in current context
