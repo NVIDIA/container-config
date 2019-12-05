@@ -79,7 +79,7 @@ ensure::mounted() {
 
 	if ! mount | grep -q "${directory}"; then
 		log ERROR "Directory ${directory} isn't mounted in container"
-		log ERROR "Ensure that you have correctly mounted the docker directoy"
+		log ERROR "Ensure that you have correctly mounted the following path '${directoy}'"
 		exit 1
 	fi
 }
