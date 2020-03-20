@@ -35,25 +35,25 @@ testing::setup() {
 	mkdir -p "${shared_dir}/${CRIO_HOOKS_DIR}"
 }
 
-testing::docker_run::toolkit() {
-	docker run -t --privileged \
-		-v "${shared_dir}/etc/docker:/etc/docker" \
-		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
-		-v "${shared_dir}/run/nvidia:/run/nvidia" \
-		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
-		--pid "container:${dind}" \
-		"${toolkit}" \
-		"run" "--destination" "/run/nvidia" \
-			"--symlink" "/usr/local/nvidia" \
-			"--docker-socket" "/run/nvidia/docker.sock" "$*"
-}
-
 testing::docker_run::toolkit::shell() {
 	docker run -t --privileged --entrypoint sh \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
-		"${toolkit}" "-c" "$*"
+		"${toolkit_container_image}" "-c" "$*"
 }
 
+testing::exec::dind() {
+	docker exec -t "${dind}" sh -c "$*"
+}
+
+testing::dind::toolkit() {
+	# Share the volumes so that we can edit the config file and point to the new runtime
+	# Share the pid so that we can ask docker to reload its config
+	docker run -t --privileged \
+		--volumes-from "${dind}" \
+		--pid "container:${dind}" \
+		-e 'RUNTIME_ARGS=--socket /run/nvidia/docker.sock' \
+		"${toolkit_container_image}" "/usr/local/nvidia" "$*"
+}

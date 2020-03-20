@@ -32,15 +32,6 @@ toolkit::remove() {
 	rm -rf "${destination}"
 }
 
-toolkit::symlink() {
-	local -r target="${1:-"${TOOLKIT_DIR}"}"
-	local -r destination="${2:-"${TOOLKIT_DIR}"}"
-	log INFO "${FUNCNAME[0]} $*"
-
-	mkdir -p "${target}" "$(dirname ${destination})"
-	ln -s "${target}" "${destination}"
-}
-
 toolkit::install::packages() {
 	local -r destination="${1:-"${SOURCE_DIR}"}"
 
@@ -129,38 +120,17 @@ toolkit::usage() {
 Usage: $0 COMMAND [ARG...]
 
 Commands:
-  install DESTINATION [-s | --symlink LINK_NAME]
-
-Description
-  -s, --symlink	On some distribution it is necessary to install the toolkit at a different location than the one pointed to by destination (e.g: The parent folder is noexec). '--symlink' allows installing to a different directory without messing the paths (e.g: install in /usr/local/nvidia/toolkit but have all paths point to /run/nvidia/toolkit).
+  install DESTINATION
 EOF
 }
 
 toolkit::install() {
 	local destination="$1/toolkit"; shift
-	local symlink=""
-
-	options=$(getopt -l symlink: -o s: -- "$@")
-	if [[ "$?" -ne 0 ]]; then toolkit::usage; exit 1; fi
-
-	# set options to positional parameters
-	eval set -- "${options}"
-	for opt in ${options}; do
-		case "${opt}" in
-		-s | --symlink) symlink="$2/toolkit"; shift 2;;
-		--) shift; break;;
-		esac
-	done
 
 	if [[ "$#" -ne 0 ]]; then toolkit::usage; exit 1; fi
 
 	# Uninstall previous installation of the toolkit
 	toolkit::remove "${destination}" || exit 1
-
-	if [[ ! -z "$symlink" ]]; then
-		toolkit::remove "${symlink}" || exit 1
-		toolkit::symlink "${symlink}" "${destination}"
-	fi
 
 	log INFO "${FUNCNAME[0]} $*"
 

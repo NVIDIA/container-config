@@ -17,27 +17,22 @@ testing::toolkit::main() {
 	local -r uid=$(id -u)
 	local -r gid=$(id -g)
 
-	testing::docker_run::toolkit::shell 'toolkit /run/nvidia/ --symlink /usr/local/nvidia'
+	testing::docker_run::toolkit::shell 'toolkit /usr/local/nvidia'
 	docker run -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
 
-	# Ensure creation of the symlink and fix it up for read in current context
-	test "$(readlink "${shared_dir}/run/nvidia/toolkit")" = "/usr/local/nvidia/toolkit"
-	rm -f "${shared_dir}/run/nvidia/toolkit"
-	ln -sf "${shared_dir}/usr/local/nvidia/toolkit" "${shared_dir}/run/nvidia/toolkit"
-
 	# Ensure toolkit dir is correctly setup
-	test ! -z "$(ls -A "${shared_dir}/run/nvidia/toolkit")"
+	test ! -z "$(ls -A "${shared_dir}/usr/local/nvidia/toolkit")"
 
-	test -L "${shared_dir}/run/nvidia/toolkit/libnvidia-container.so.1"
-	test -e "$(readlink -f "${shared_dir}/run/nvidia/toolkit/libnvidia-container.so.1")"
+	test -L "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1"
+	test -e "$(readlink -f "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1")"
 
-	test -e "${shared_dir}/run/nvidia/toolkit/nvidia-container-cli"
-	test -e "${shared_dir}/run/nvidia/toolkit/nvidia-container-toolkit"
-	test -e "${shared_dir}/run/nvidia/toolkit/nvidia-container-runtime"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-cli"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-toolkit"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-runtime"
 
-	test -e "${shared_dir}/run/nvidia/toolkit/nvidia-container-cli.real"
-	test -e "${shared_dir}/run/nvidia/toolkit/nvidia-container-toolkit.real"
-	test -e "${shared_dir}/run/nvidia/toolkit/nvidia-container-runtime.real"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-cli.real"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-toolkit.real"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-runtime.real"
 
-	test -e "${shared_dir}/run/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
 }
