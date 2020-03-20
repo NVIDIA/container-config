@@ -23,32 +23,10 @@ testing::dind() {
 		--name "${dind}" -d docker:stable-dind $*
 }
 
-testing::exec::dind() {
-	docker exec -t "${dind}" sh -c "$*"
-}
-
-testing::dind::toolkit() {
-	# Share the volumes so that we can edit the config file and point to the new runtime
-	# Share the pid so that we can ask docker to reload its config
-	docker run -t --privileged \
-		--volumes-from "${dind}" \
-		--pid "container:${dind}" \
-		-e 'TOOLKIT_ARGS=--symlink /usr/local/nvidia' \
-		-e 'RUNTIME_ARGS=--socket /run/nvidia/docker.sock' \
-		"${toolkit}" "/run/nvidia" "$*"
-}
-
 testing::docker::main() {
 	testing::dind -H unix://run/nvidia/docker.sock
 	testing::dind::toolkit --no-daemon
 
 	# Ensure that we haven't broken non GPU containers
 	with_retry 3 5s testing::exec::dind docker run -t alpine echo foo
-
-	# Fixup symlink to point to the shared directory
-	rm -f "${shared_dir}/run/nvidia/toolkit"
-	ln -sf "${shared_dir}/usr/local/nvidia/toolkit" "${shared_dir}/run/nvidia/toolkit"
-
-	# Ensure toolkit dir is not empty
-	test ! -z "$(ls -A "${shared_dir}"/run/nvidia/toolkit)"
 }

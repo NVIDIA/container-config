@@ -31,14 +31,15 @@ usage() {
 Usage: $0 COMMAND [ARG...]
 
 Commands:
-  run SHARED_DIR TOOLKIT_VERSION [-c | --no-cleanup-on-error ]
+  run SHARED_DIR TOOLKIT_CONTAINER_IMAGE [-c | --no-cleanup-on-error ]
   clean SHARED_DIR
 EOF
 }
 
 if [ $# -lt 2 ]; then usage; exit 1; fi
 
-readonly command=$1; shift
+# We defined shared_dir here so that it can be used in cleanup
+readonly command=${1}; shift
 readonly shared_dir="${1}"; shift;
 
 case "${command}" in
@@ -49,7 +50,7 @@ esac
 
 if [ $# -eq 0 ]; then usage; exit 1; fi
 
-readonly toolkit="${1}"; shift
+readonly toolkit_container_image="${1}"; shift
 
 options=$(getopt -l no-cleanup-on-error -o c -- "$@")
 if [[ "$?" -ne 0 ]]; then usage; exit 1; fi

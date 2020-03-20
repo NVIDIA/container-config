@@ -14,6 +14,7 @@
 # limitations under the License.
 
 readonly RUN_DIR="/run/nvidia"
+readonly LOCAL_DIR="/usr/local/nvidia"
 readonly TOOLKIT_DIR="${RUN_DIR}/toolkit"
 readonly PID_FILE="${RUN_DIR}/toolkit.pid"
 readonly CRIO_HOOKS_DIR="/usr/share/containers/oci/hooks.d"
