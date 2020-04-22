@@ -1,0 +1,21 @@
+FROM registry.access.redhat.com/ubi8:latest
+
+RUN dnf install -y curl jq
+
+RUN curl -s -L https://nvidia.github.io/nvidia-docker/centos7/nvidia-docker.repo |\
+    tee /etc/yum.repos.d/nvidia-docker.repo
+
+RUN yum install -y nvidia-container-toolkit
+
+WORKDIR /work
+
+COPY src/. .
+
+RUN ln -s /work/run.sh nvidia-toolkit && \
+	ln -s /work/toolkit.sh toolkit && \
+	ln -s /work/crio.sh crio && \
+	ln -s /work/docker.sh docker
+
+ENV PATH=/work:$PATH
+
+ENTRYPOINT ["nvidia-toolkit"]
