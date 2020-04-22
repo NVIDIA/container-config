@@ -40,17 +40,17 @@ push-latest:
 
 ubuntu18.04:
 	docker build --pull \
-		--tag $(REGISTRY)/container-toolkit:$(TAG)-ubuntu18.04 \
+		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubuntu18.04 \
 		--file docker/Dockerfile.ubuntu18.04 .
 
 ubuntu16.04:
 	docker build --pull \
-		--tag $(REGISTRY)/container-toolkit:$(TAG)-ubuntu16.04 \
+		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubuntu16.04 \
 		--file docker/Dockerfile.ubuntu16.04 .
 
 ubi8:
 	docker build --pull \
-		--tag $(REGISTRY)/container-toolkit:$(TAG)-ubi8 \
+		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubi8 \
 		--file docker/Dockerfile.ubi8 .
 
 clean:
