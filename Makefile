@@ -58,4 +58,4 @@ clean:
 	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared
 
 test: build
-	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(REGISTRY)/container-toolkit:$(TAG) --no-cleanup-on-error
+	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(REGISTRY)/container-toolkit:$(VERSION) --no-cleanup-on-error
