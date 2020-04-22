@@ -18,6 +18,7 @@
 
 ##### Global variables #####
 
+DOCKER   ?= docker
 REGISTRY ?= nvidia
 VERSION  ?= 1.0.0-beta.1
 
@@ -39,17 +40,17 @@ push-latest:
 	$(DOCKER) push "$(REGISTRY)/container-toolkit:latest"
 
 ubuntu18.04:
-	docker build --pull \
+	$(DOCKER) build --pull \
 		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubuntu18.04 \
 		--file docker/Dockerfile.ubuntu18.04 .
 
 ubuntu16.04:
-	docker build --pull \
+	$(DOCKER) build --pull \
 		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubuntu16.04 \
 		--file docker/Dockerfile.ubuntu16.04 .
 
 ubi8:
-	docker build --pull \
+	$(DOCKER) build --pull \
 		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubi8 \
 		--file docker/Dockerfile.ubi8 .
 
