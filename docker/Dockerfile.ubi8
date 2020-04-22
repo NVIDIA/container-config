@@ -1,7 +1,8 @@
 FROM registry.access.redhat.com/ubi8:latest
 
-RUN dnf install -y curl jq
+RUN dnf install -y curl wget
 
+RUN wget -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
 RUN curl -s -L https://nvidia.github.io/nvidia-docker/centos7/nvidia-docker.repo |\
     tee /etc/yum.repos.d/nvidia-docker.repo
 
