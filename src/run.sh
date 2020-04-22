@@ -78,6 +78,7 @@ main() {
 		-r | --runtime)      RUNTIME="$2";      shift 2;;
 		-u | --runtime-args) RUNTIME_ARGS="$2"; shift 2;;
 		--) shift; break;;
+		*) echo "Unknown argument ${opt}" && exit 1;;
 		esac
 	done
 
