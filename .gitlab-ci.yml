@@ -14,10 +14,10 @@ build:
     - apk add make
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
 
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" all
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" push
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" push-short
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" push-latest
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" all
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push-short
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push-latest
 
 integration:
   stage: test
@@ -26,7 +26,7 @@ integration:
   image: docker:stable
   script:
     - apk add make bash jq
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" TAG="${CI_COMMIT_SHA}" test
+    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" test
 
 
 release:
@@ -37,7 +37,7 @@ release:
     - apk add make
     - docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}"
 
-    - make TAG="${CI_COMMIT_SHA}" all
-    - make TAG="${CI_COMMIT_SHA}" push
-    - make TAG="${CI_COMMIT_SHA}" push-short
-    - make TAG="${CI_COMMIT_SHA}" push-latest
+    - make VERSION="${CI_COMMIT_SHA}" all
+    - make VERSION="${CI_COMMIT_SHA}" push
+    - make VERSION="${CI_COMMIT_SHA}" push-short
+    - make VERSION="${CI_COMMIT_SHA}" push-latest
