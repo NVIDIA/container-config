@@ -52,6 +52,7 @@ ubuntu16.04:
 ubi8:
 	$(DOCKER) build --pull \
 		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubi8 \
+		--build-arg VERSION="$(VERSION)" \
 		--file docker/Dockerfile.ubi8 .
 
 clean:
