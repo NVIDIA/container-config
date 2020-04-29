@@ -22,8 +22,7 @@ source "${basedir}/common.sh"
 packages=("/usr/bin/nvidia-container-runtime" \
 	"/usr/bin/nvidia-container-toolkit" \
 	"/usr/bin/nvidia-container-cli" \
-	"/etc/nvidia-container-runtime/config.toml" \
-	"/usr/lib/x86_64-linux-gnu/libnvidia-container.so.1")
+	"/etc/nvidia-container-runtime/config.toml")
 
 toolkit::remove() {
 	local -r destination="${1:-"${TOOLKIT_DIR}"}"
@@ -133,6 +132,13 @@ toolkit::install() {
 	toolkit::remove "${destination}" || exit 1
 
 	log INFO "${FUNCNAME[0]} $*"
+
+	# Add one more according to Debian/Ubuntu or RHEL style multilib path
+	if [ -e /etc/debian_version ]; then
+		packages+=("/usr/lib/x86_64-linux-gnu/libnvidia-container.so.1")
+	else
+		packages+=("/usr/lib64/libnvidia-container.so.1")
+	fi
 
 	toolkit::install::packages "${destination}"
 
