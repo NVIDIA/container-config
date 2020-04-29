@@ -6,7 +6,7 @@ RUN wget -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/j
 RUN curl -s -L https://nvidia.github.io/nvidia-docker/centos7/nvidia-docker.repo |\
     tee /etc/yum.repos.d/nvidia-docker.repo
 
-RUN yum install -y nvidia-container-toolkit
+RUN yum install -y nvidia-container-toolkit nvidia-container-runtime.x86_64
 
 WORKDIR /work
 
