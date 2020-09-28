@@ -19,7 +19,10 @@
 ##### Global variables #####
 
 DOCKER   ?= docker
+ifeq ($(IMAGE),)
 REGISTRY ?= nvidia
+IMAGE := $(REGISTRY)/container-toolkit
+endif
 VERSION  ?= 1.0.0-beta.1
 
 ##### Public rules #####
@@ -27,31 +30,31 @@ VERSION  ?= 1.0.0-beta.1
 all: ubuntu18.04 ubuntu16.04 ubi8
 
 push:
-	$(DOCKER) push "$(REGISTRY)/container-toolkit:$(VERSION)-ubuntu18.04"
-	$(DOCKER) push "$(REGISTRY)/container-toolkit:$(VERSION)-ubuntu16.04"
-	$(DOCKER) push "$(REGISTRY)/container-toolkit:$(VERSION)-ubi8"
+	$(DOCKER) push "$(IMAGE):$(VERSION)-ubuntu18.04"
+	$(DOCKER) push "$(IMAGE):$(VERSION)-ubuntu16.04"
+	$(DOCKER) push "$(IMAGE):$(VERSION)-ubi8"
 
 push-short:
-	$(DOCKER) tag "$(REGISTRY)/container-toolkit:$(VERSION)-ubuntu18.04" "$(REGISTRY)/container-toolkit:$(VERSION)"
-	$(DOCKER) push "$(REGISTRY)/container-toolkit:$(VERSION)"
+	$(DOCKER) tag "$(IMAGE):$(VERSION)-ubuntu18.04" "$(IMAGE):$(VERSION)"
+	$(DOCKER) push "$(IMAGE):$(VERSION)"
 
 push-latest:
-	$(DOCKER) tag "$(REGISTRY)/container-toolkit:$(VERSION)-ubuntu18.04" "$(REGISTRY)/container-toolkit:latest"
-	$(DOCKER) push "$(REGISTRY)/container-toolkit:latest"
+	$(DOCKER) tag "$(IMAGE):$(VERSION)-ubuntu18.04" "$(IMAGE):latest"
+	$(DOCKER) push "$(IMAGE):latest"
 
 ubuntu18.04:
 	$(DOCKER) build --pull \
-		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubuntu18.04 \
+		--tag $(IMAGE):$(VERSION)-ubuntu18.04 \
 		--file docker/Dockerfile.ubuntu18.04 .
 
 ubuntu16.04:
 	$(DOCKER) build --pull \
-		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubuntu16.04 \
+		--tag $(IMAGE):$(VERSION)-ubuntu16.04 \
 		--file docker/Dockerfile.ubuntu16.04 .
 
 ubi8:
 	$(DOCKER) build --pull \
-		--tag $(REGISTRY)/container-toolkit:$(VERSION)-ubi8 \
+		--tag $(IMAGE):$(VERSION)-ubi8 \
 		--build-arg VERSION="$(VERSION)" \
 		--file docker/Dockerfile.ubi8 .
 
@@ -59,4 +62,4 @@ clean:
 	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared
 
 test: build
-	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(REGISTRY)/container-toolkit:$(VERSION) --no-cleanup-on-error
+	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(IMAGE):$(VERSION) --no-cleanup-on-error
