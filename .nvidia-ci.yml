@@ -61,9 +61,6 @@ stages:
   - docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04 ${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04
   - docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04 ${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04
   - docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8 ${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8
-  - if [ -n "$CI_COMMIT_TAG" ]; then  docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04 ${IMAGE_NAME}:${CI_COMMIT_TAG}-ubuntu16.04 ; fi
-  - if [ -n "$CI_COMMIT_TAG" ]; then docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04 ${IMAGE_NAME}:${CI_COMMIT_TAG}-ubuntu18.04 ; fi
-  - if [ -n "$CI_COMMIT_TAG" ]; then docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8 ${IMAGE_NAME}:${CI_COMMIT_TAG}-ubi8 ; fi
 
 .build_action: &build_action
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" all
@@ -80,9 +77,12 @@ stages:
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push-latest
 
 .deploy_tag_action: &deploy_tag_action
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG}" push
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG}" push-short
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG}" push-latest
+  - if [ -n "$CI_COMMIT_TAG" ]; then docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04 ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG:1}-ubuntu16.04 ; fi
+  - if [ -n "$CI_COMMIT_TAG" ]; then docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04 ${CI_REGISTRY_IMAGE}${IMAGE_NAME}:${CI_COMMIT_TAG:1}-ubuntu18.04 ; fi
+  - if [ -n "$CI_COMMIT_TAG" ]; then docker tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8 ${CI_REGISTRY_IMAGE}${IMAGE_NAME}:${CI_COMMIT_TAG:1}-ubi8 ; fi
+  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG:1}" push
+  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG:1}" push-short
+  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG:1}" push-latest
 
 # contamer does not support local scans on images that contain a port number
 .scan_action: &scan_action
@@ -94,16 +94,16 @@ stages:
   - python3 contamer.py -ls --fail-on-non-os ${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8 || true
 
 .release_ngc_action: &release_ngc_action
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" all
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" push
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" push-short
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" push-latest
+  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" all
+  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" push
+  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" push-short
+  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" push-latest
 
 .release_dockerhub_action: &release_dockerhub_action
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" all
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" push
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" push-short
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG}" push-latest
+  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" all
+  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" push
+  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" push-short
+  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG:1}" push-latest
 
 build:
   stage: build
