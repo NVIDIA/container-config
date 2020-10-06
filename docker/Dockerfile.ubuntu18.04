@@ -1,4 +1,8 @@
-From ubuntu:18.04
+FROM nvidia/cuda:11.0-base-ubuntu18.04
+
+ENV NVIDIA_DISABLE_REQUIRE="true"
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-transport-https \
