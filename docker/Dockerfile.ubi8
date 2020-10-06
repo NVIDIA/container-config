@@ -1,4 +1,8 @@
-FROM registry.access.redhat.com/ubi8:latest
+FROM nvidia/cuda:11.0-base-ubi8
+
+ENV NVIDIA_DISABLE_REQUIRE="true"
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
 RUN dnf install -y curl wget
 
