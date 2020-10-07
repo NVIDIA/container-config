@@ -97,7 +97,6 @@ stages:
   - pip3 install -r requirements.txt
   - python3 contamer.py -ls --fail-on-non-os "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04"
   - python3 contamer.py -ls --fail-on-non-os "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04"
-  - python3 contamer.py -ls --fail-on-non-os "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8"
 
 .release_ngc_action: &release_ngc_action
   - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push
