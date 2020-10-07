@@ -27,12 +27,11 @@ VERSION  ?= 1.0.0-beta.1
 
 ##### Public rules #####
 
-all: ubuntu18.04 ubuntu16.04 ubi8
+all: ubuntu18.04 ubuntu16.04
 
 push:
 	$(DOCKER) push "$(IMAGE):$(VERSION)-ubuntu18.04"
 	$(DOCKER) push "$(IMAGE):$(VERSION)-ubuntu16.04"
-	$(DOCKER) push "$(IMAGE):$(VERSION)-ubi8"
 
 push-short:
 	$(DOCKER) tag "$(IMAGE):$(VERSION)-ubuntu18.04" "$(IMAGE):$(VERSION)"
