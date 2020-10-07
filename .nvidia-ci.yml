@@ -79,6 +79,8 @@ stages:
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push-latest
 
 .deploy_tag_action: &deploy_tag_action
+  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG#v}-ubuntu16.04"
+  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG#v}-ubuntu18.04"
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push-short
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push-latest
