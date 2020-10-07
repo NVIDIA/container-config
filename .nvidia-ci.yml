@@ -57,16 +57,13 @@ stages:
 .pull_images: &pull_images
   - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04"
   - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04"
-  - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8"
   - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04" "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04"
   - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04" "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04"
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8" "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8"
 
 # pull images based on tags from deploy:tags
 .pull_tags: &pull_tags
   - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG}-ubuntu16.04"
   - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG}-ubuntu18.04"
-  - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG}-ubi8"
 
 .build_action: &build_action
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" all
@@ -85,7 +82,6 @@ stages:
 .deploy_tag_action: &deploy_tag_action
   - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG#v}-ubuntu16.04"
   - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG#v}-ubuntu18.04"
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubi8" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_TAG#v}-ubi8"
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push-short
   - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push-latest
