@@ -38,13 +38,26 @@ docker::config::backup() {
 }
 
 docker::config::restore() {
+	local updated_config
+
 	if [[ -f "${DOCKER_CONFIG}.bak" ]]; then
 		mv "${DOCKER_CONFIG}.bak" "${DOCKER_CONFIG}"
+		# explicitly change default runtime as runc
+		updated_config=$(cat "${DOCKER_CONFIG}" | docker::config::restore_runtime)
 	else
 		if [[ -f "${DOCKER_CONFIG}" ]]; then
 			rm "${DOCKER_CONFIG}"
 		fi
+		# reset back to default settings
+		updated_config=$(echo "{}" | docker::config::restore_runtime)
 	fi
+	echo "${updated_config}" > "${DOCKER_CONFIG}"
+}
+
+docker::config::restore_runtime() {
+	cat - | \
+		jq -r 'if (.runtimes | length) != 0 then del(.runtimes.nvidia) else .runtimes = {} end' | \
+		jq -r '. += {"default-runtime": "runc"}'
 }
 
 docker::config::add_runtime() {
@@ -146,6 +159,7 @@ docker::setup() {
 
 docker::cleanup() {
 	docker::config::restore
+	docker::config::refresh
 }
 
 if [ $# -eq 0 ]; then docker::usage; exit 1; fi
