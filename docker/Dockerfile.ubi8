@@ -6,11 +6,14 @@ ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
 RUN dnf install -y curl wget
 
-RUN wget -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+RUN wget -O /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 \
+	   && chmod +x /usr/local/bin/jq
 RUN curl -s -L https://nvidia.github.io/nvidia-docker/centos7/nvidia-docker.repo |\
     tee /etc/yum.repos.d/nvidia-docker.repo
 
-RUN yum install -y nvidia-container-toolkit nvidia-container-runtime.x86_64
+RUN yum install -y procps \
+       nvidia-container-toolkit \
+       nvidia-container-runtime.x86_64
 
 WORKDIR /work
 
