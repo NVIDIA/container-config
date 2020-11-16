@@ -23,7 +23,9 @@ ifeq ($(IMAGE),)
 REGISTRY ?= nvidia
 IMAGE := $(REGISTRY)/container-toolkit
 endif
-VERSION  ?= 1.0.0-beta.1
+
+# Must be set externally before invoking
+VERSION ?= 
 
 ##### Public rules #####
 
