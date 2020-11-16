@@ -30,4 +30,16 @@ RUN ln -s /work/run.sh nvidia-toolkit && \
 
 ENV PATH=/work:$PATH
 
+ARG VERSION
+
+LABEL io.k8s.display-name="NVIDIA Container Runtime Config"
+LABEL name="NVIDIA Container Runtime Config"
+LABEL vendor="NVIDIA"
+LABEL version="${VERSION}"
+LABEL release="N/A"
+LABEL summary="Automatically Configure your Container Runtime for GPU support."
+LABEL description="See summary"
+
+COPY ./LICENSE /licenses/LICENSE
+
 ENTRYPOINT ["nvidia-toolkit"]

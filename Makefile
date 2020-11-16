@@ -46,11 +46,13 @@ push-latest:
 ubuntu18.04:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-ubuntu18.04 \
+		--build-arg VERSION="$(VERSION)" \
 		--file docker/Dockerfile.ubuntu18.04 .
 
 ubuntu16.04:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-ubuntu16.04 \
+		--build-arg VERSION="$(VERSION)" \
 		--file docker/Dockerfile.ubuntu16.04 .
 
 ubi8:
