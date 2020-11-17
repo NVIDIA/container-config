@@ -16,8 +16,15 @@ RUN curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add - && 
     curl -s -L https://nvidia.github.io/nvidia-docker/ubuntu16.04/nvidia-docker.list | \
         tee /etc/apt/sources.list.d/nvidia-docker.list
 
+ARG LIBNVIDIA_CONTAINER_VERSION
+ARG NVIDIA_CONTAINER_TOOLKIT_VERSION
+ARG NVIDIA_CONTAINER_RUNTIME_VERSION
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    nvidia-container-runtime
+    libnvidia-container1=${LIBNVIDIA_CONTAINER_VERSION}-1 \
+    libnvidia-container-tools=${LIBNVIDIA_CONTAINER_VERSION}-1 \
+    nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION}-1 \
+    nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}-1
 
 WORKDIR /work
 
@@ -29,5 +36,17 @@ RUN ln -s /work/run.sh nvidia-toolkit && \
 	ln -s /work/docker.sh docker
 
 ENV PATH=/work:$PATH
+
+ARG VERSION
+
+LABEL io.k8s.display-name="NVIDIA Container Runtime Config"
+LABEL name="NVIDIA Container Runtime Config"
+LABEL vendor="NVIDIA"
+LABEL version="${VERSION}"
+LABEL release="N/A"
+LABEL summary="Automatically Configure your Container Runtime for GPU support."
+LABEL description="See summary"
+
+COPY ./LICENSE /licenses/LICENSE
 
 ENTRYPOINT ["nvidia-toolkit"]

@@ -23,7 +23,14 @@ ifeq ($(IMAGE),)
 REGISTRY ?= nvidia
 IMAGE := $(REGISTRY)/container-toolkit
 endif
-VERSION  ?= 1.0.0-beta.1
+
+# Must be set externally before invoking
+VERSION ?= 
+
+# Fix the versions for the toolkit components
+LIBNVIDIA_CONTAINER_VERSION=1.3.0
+NVIDIA_CONTAINER_TOOLKIT_VERSION=1.3.0
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.4.0
 
 ##### Public rules #####
 
@@ -44,17 +51,28 @@ push-latest:
 ubuntu18.04:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-ubuntu18.04 \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
+		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
+		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
 		--file docker/Dockerfile.ubuntu18.04 .
 
 ubuntu16.04:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-ubuntu16.04 \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
+		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
+		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
 		--file docker/Dockerfile.ubuntu16.04 .
 
 ubi8:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-ubi8 \
 		--build-arg VERSION="$(VERSION)" \
+		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
+		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
+		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
 		--file docker/Dockerfile.ubi8 .
 
 clean:
