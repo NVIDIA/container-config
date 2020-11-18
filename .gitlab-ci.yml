@@ -21,6 +21,10 @@ build:
 
 integration:
   stage: test
+  except:
+    variables:
+    - $CI_COMMIT_MESSAGE =~ /\[skip[ _-]tests?\]/i
+    - $SKIP_TESTS
   services:
     - docker:dind
   image: docker:stable
