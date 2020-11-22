@@ -25,7 +25,7 @@ packages=("/usr/bin/nvidia-container-runtime" \
 	"/etc/nvidia-container-runtime/config.toml")
 
 toolkit::remove() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
 	rm -rf "${destination}"
