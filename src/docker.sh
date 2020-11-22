@@ -100,7 +100,7 @@ docker::config::is_configured() {
 		[[ "${default_runtime}" = "nvidia" ]];
 }
 
-toolkit::usage() {
+docker::usage() {
 	cat >&2 <<EOF
 Usage: $0 COMMAND [ARG...]
 
@@ -121,7 +121,7 @@ docker::setup() {
 	local docker_socket="/var/run/docker.sock"
 
 	options=$(getopt -l socket: -o s: -- "$@")
-	if [[ "$?" -ne 0 ]]; then toolkit::usage; exit 1; fi
+	if [[ "$?" -ne 0 ]]; then docker::usage; exit 1; fi
 
 	# set options to positional parameters
 	eval set -- "${options}"
