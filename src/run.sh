@@ -90,8 +90,8 @@ main() {
 
 	log INFO "=================Starting the NVIDIA Container Toolkit================="
 
-	toolkit "${destination}" ${TOOLKIT_ARGS}
-	${RUNTIME} setup "${destination}" ${RUNTIME_ARGS}
+	toolkit "${destination}/toolkit" ${TOOLKIT_ARGS}
+	${RUNTIME} setup "${destination}/toolkit" ${RUNTIME_ARGS}
 
 	if [[ "$DAEMON" -ne 0 ]]; then
 		exit 0
@@ -105,7 +105,7 @@ main() {
 	# Setup a new signal handler and reset the EXIT signal handler
 	trap "echo 'Caught signal'; \
 		_shutdown; \
-		${RUNTIME} cleanup ${destination}; \
+		${RUNTIME} cleanup ${destination}/toolkit; \
 		{ kill $!; exit 0; }" HUP INT QUIT PIPE TERM
 	trap - EXIT
 

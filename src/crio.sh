@@ -27,10 +27,10 @@ Commands:
   setup DESTINATION [-d | --hooks-dir HOOKS_DIRECTORY] [-c | --no-check]
   cleanup [-d | --hooks-dir HOOKS_DIRECTORY]
 
-Description
+Description:
   -d, --hooks-dir	The path to the hooks directory. By default it points to '${CRIO_HOOKS_DIR}'.
   -c, --no-check	Specify this option if you want to disable the different checks.
-  DESTINATION		The path where the toolkit directory resides (e.g: /run/nvidia). "/toolkit" will be appended to that path. This path must not contain a '#' character.
+  DESTINATION		The path where the toolkit directory resides (e.g: /usr/local/nvidia/toolkit).
 EOF
 }
 
@@ -40,7 +40,7 @@ crio::setup() {
 
 	local hooksd="${CRIO_HOOKS_DIR}"
 	local ensure="TRUE"
-	local -r destination="${1}/toolkit"; shift
+	local -r destination="${1}"; shift
 
 	options=$(getopt -l hooks-dir:,no-check -o d:c -- "$@")
 	if [[ "$?" -ne 0 ]]; then crio::usage; exit 1; fi
