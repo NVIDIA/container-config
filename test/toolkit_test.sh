@@ -36,3 +36,7 @@ testing::toolkit::main() {
 
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
 }
+
+testing::toolkit::cleanup() {
+	:
+}

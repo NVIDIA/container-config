@@ -31,3 +31,7 @@ testing::docker::main() {
 	# Ensure that we haven't broken non GPU containers
 	with_retry 3 5s testing::exec::dind docker run -t alpine echo foo
 }
+
+testing::docker::cleanup() {
+	docker kill "${dind}" &> /dev/null || true
+}

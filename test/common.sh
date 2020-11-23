@@ -30,17 +30,9 @@ testing::cleanup() {
 		rmdir "${shared_dir}"
 	fi
 
-	docker kill "${dind}" &> /dev/null || true
-	docker rm "${dind}" &> /dev/null || true
-}
-
-testing::setup() {
-	mkdir -p "${shared_dir}"
-	mkdir -p "${shared_dir}/etc/docker"
-	mkdir -p "${shared_dir}/run/nvidia"
-	mkdir -p "${shared_dir}/usr/local/nvidia"
-	mkdir -p "${shared_dir}/etc/nvidia-container-runtime"
-	mkdir -p "${shared_dir}/${CRIO_HOOKS_DIR}"
+	for tc in ${test_cases}; do
+		testing::${tc}::cleanup
+	done
 }
 
 testing::docker_run::toolkit::shell() {

@@ -41,3 +41,7 @@ testing::crio::hook_cleanup() {
 
 	test -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
 }
+
+testing::crio::cleanup() {
+	:
+}
