@@ -548,7 +548,7 @@ func SignalContainerd() error {
 
 	err = syscall.Kill(int(ucred.Pid), syscall.SIGHUP)
 	if err != nil {
-			return fmt.Errorf("unable to send SIGHUP to 'containerd' process: %v", err)
+		return fmt.Errorf("unable to send SIGHUP to 'containerd' process: %v", err)
 	}
 
 	log.Infof("Successfully signaled containerd")
