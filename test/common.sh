@@ -24,8 +24,9 @@ testing::setup() {
 
 testing::cleanup() {
 	if [[ -e "${shared_dir}" ]]; then
-		docker run -v "${shared_dir}:/work" alpine \
-			sh -c 'rm -rf /work/*'
+		docker run --rm \
+			-v "${shared_dir}:/work" \
+			alpine sh -c 'rm -rf /work/*'
 		rmdir "${shared_dir}"
 	fi
 
@@ -43,7 +44,8 @@ testing::setup() {
 }
 
 testing::docker_run::toolkit::shell() {
-	docker run -t --privileged --entrypoint sh \
+	docker run --rm --privileged \
+		--entrypoint sh \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia" \

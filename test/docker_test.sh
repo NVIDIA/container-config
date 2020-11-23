@@ -16,11 +16,12 @@
 testing::dind() {
 	# Docker creates /etc/docker when starting
 	# by default there isn't any config in this directory (even after the daemon starts)
-	docker run --privileged \
+	docker run -d --rm --privileged \
 		-v "${shared_dir}/etc/docker:/etc/docker" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
-		--name "${dind}" -d docker:stable-dind $*
+		--name "${docker_dind_ctr}" \
+		docker:stable-dind $*
 }
 
 testing::docker::main() {
