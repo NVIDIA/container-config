@@ -44,17 +44,3 @@ testing::docker_run::toolkit::shell() {
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
 		"${toolkit_container_image}" "-c" "$*"
 }
-
-testing::exec::dind() {
-	docker exec -t "${dind}" sh -c "$*"
-}
-
-testing::dind::toolkit() {
-	# Share the volumes so that we can edit the config file and point to the new runtime
-	# Share the pid so that we can ask docker to reload its config
-	docker run -t --privileged \
-		--volumes-from "${dind}" \
-		--pid "container:${dind}" \
-		-e 'RUNTIME_ARGS=--socket /run/nvidia/docker.sock' \
-		"${toolkit_container_image}" "/usr/local/nvidia" "$*"
-}

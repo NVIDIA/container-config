@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-testing::dind() {
+readonly docker_test_ctr="container-config-docker-test-ctr-name"
+
+testing::docker::dind::setup() {
 	# Docker creates /etc/docker when starting
 	# by default there isn't any config in this directory (even after the daemon starts)
 	docker run -d --rm --privileged \
@@ -21,17 +23,33 @@ testing::dind() {
 		-v "${shared_dir}/run/nvidia:/run/nvidia" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
 		--name "${docker_dind_ctr}" \
-		docker:stable-dind $*
+		kdocker:stable-dind -H unix://run/nvidia/docker.sock
+}
+
+testing::docker::dind::exec() {
+	docker exec "${dind}" sh -c "$*"
+}
+
+testing::docker::toolkit::run() {
+	# Share the volumes so that we can edit the config file and point to the new runtime
+	# Share the pid so that we can ask docker to reload its config
+	docker run -d --rm --privileged \
+		--volumes-from "${dind}" \
+		--pid "container:${dind}" \
+		-e "RUNTIME_ARGS=--socket /run/nvidia/docker.sock" \
+		--name "${docker_test_ctr}" \
+		"${toolkit_container_image}" "/usr/local/nvidia" "--no-daemon"
+
+	# Ensure that we haven't broken non GPU containers
+	with_retry 3 5s testing::docker::dind::exec docker run -t alpine echo foo
 }
 
 testing::docker::main() {
-	testing::dind -H unix://run/nvidia/docker.sock
-	testing::dind::toolkit --no-daemon
-
-	# Ensure that we haven't broken non GPU containers
-	with_retry 3 5s testing::exec::dind docker run -t alpine echo foo
+	testing::docker::dind::setup
+	testing::docker::toolkit::run
 }
 
 testing::docker::cleanup() {
 	docker kill "${dind}" &> /dev/null || true
+	docker kill "${docker_test_ctr}" &> /dev/null || true
 }
