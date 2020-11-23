@@ -14,6 +14,13 @@
 # limitations under the License.
 
 readonly dind="container-config-dind-ctr-name"
+testing::setup() {
+	cp -Rp ${basedir}/shared ${shared_dir}
+	mkdir -p "${shared_dir}/etc/docker"
+	mkdir -p "${shared_dir}/run/nvidia"
+	mkdir -p "${shared_dir}/usr/local/nvidia"
+	mkdir -p "${shared_dir}/${CRIO_HOOKS_DIR}"
+}
 
 testing::cleanup() {
 	if [[ -e "${shared_dir}" ]]; then
