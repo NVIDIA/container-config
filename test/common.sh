@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-readonly dind="container-config-dind-ctr-name"
 testing::setup() {
 	cp -Rp ${basedir}/shared ${shared_dir}
 	mkdir -p "${shared_dir}/etc/docker"

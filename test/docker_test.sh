@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+readonly docker_dind_ctr="container-config-docker-dind-ctr-name"
 readonly docker_test_ctr="container-config-docker-test-ctr-name"
+readonly docker_dind_socket="/run/nvidia/docker.sock"
 
 testing::docker::dind::setup() {
 	# Docker creates /etc/docker when starting
@@ -23,20 +25,20 @@ testing::docker::dind::setup() {
 		-v "${shared_dir}/run/nvidia:/run/nvidia" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
 		--name "${docker_dind_ctr}" \
-		kdocker:stable-dind -H unix://run/nvidia/docker.sock
+		docker:stable-dind -H unix://${docker_dind_socket}
 }
 
 testing::docker::dind::exec() {
-	docker exec "${dind}" sh -c "$*"
+	docker exec "${docker_dind_ctr}" sh -c "$*"
 }
 
 testing::docker::toolkit::run() {
 	# Share the volumes so that we can edit the config file and point to the new runtime
 	# Share the pid so that we can ask docker to reload its config
 	docker run -d --rm --privileged \
-		--volumes-from "${dind}" \
-		--pid "container:${dind}" \
-		-e "RUNTIME_ARGS=--socket /run/nvidia/docker.sock" \
+		--volumes-from "${docker_dind_ctr}" \
+		--pid "container:${docker_dind_ctr}" \
+		-e "RUNTIME_ARGS=--socket ${docker_dind_socket}" \
 		--name "${docker_test_ctr}" \
 		"${toolkit_container_image}" "/usr/local/nvidia" "--no-daemon"
 
@@ -50,6 +52,6 @@ testing::docker::main() {
 }
 
 testing::docker::cleanup() {
-	docker kill "${dind}" &> /dev/null || true
+	docker kill "${docker_dind_ctr}" &> /dev/null || true
 	docker kill "${docker_test_ctr}" &> /dev/null || true
 }
