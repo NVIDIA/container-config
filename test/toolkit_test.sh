@@ -17,7 +17,7 @@ testing::toolkit::main() {
 	local -r uid=$(id -u)
 	local -r gid=$(id -g)
 
-	testing::docker_run::toolkit::shell 'toolkit /usr/local/nvidia'
+	testing::docker_run::toolkit::shell 'toolkit /usr/local/nvidia/toolkit'
 	docker run -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
 
 	# Ensure toolkit dir is correctly setup

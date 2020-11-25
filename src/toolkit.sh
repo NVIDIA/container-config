@@ -25,7 +25,7 @@ packages=("/usr/bin/nvidia-container-runtime" \
 	"/etc/nvidia-container-runtime/config.toml")
 
 toolkit::remove() {
-	local -r destination="${1:-"${TOOLKIT_DIR}"}"
+	local -r destination="${1:-"${SOURCE_DIR}"}"
 	log INFO "${FUNCNAME[0]} $*"
 
 	rm -rf "${destination}"
@@ -120,11 +120,14 @@ Usage: $0 COMMAND [ARG...]
 
 Commands:
   install DESTINATION
+
+Description:
+  DESTINATION	The path where the toolkit directory resides (e.g: /usr/local/nvidia/toolkit).
 EOF
 }
 
 toolkit::install() {
-	local destination="$1/toolkit"; shift
+	local destination="$1"; shift
 
 	if [[ "$#" -ne 0 ]]; then toolkit::usage; exit 1; fi
 
