@@ -18,8 +18,6 @@ shopt -s lastpipe
 readonly basedir="$(dirname "$(realpath "$0")")"
 source "${basedir}/common.sh"
 
-readonly DOCKER_CONFIG="/etc/docker/daemon.json"
-
 docker::info() {
 	local -r docker_socket="${1:-/var/run/docker.sock}"
 
@@ -32,26 +30,28 @@ docker::info() {
 }
 
 docker::config::backup() {
-	if [[ -f "${DOCKER_CONFIG}" ]]; then
-		mv "${DOCKER_CONFIG}" "${DOCKER_CONFIG}.bak"
+	local docker_config=${1}
+	if [[ -f "${docker_config}" ]]; then
+		mv "${docker_config}" "${docker_config}.bak"
 	fi
 }
 
 docker::config::restore() {
+	local docker_config=${1}
 	local updated_config
 
-	if [[ -f "${DOCKER_CONFIG}.bak" ]]; then
-		mv "${DOCKER_CONFIG}.bak" "${DOCKER_CONFIG}"
+	if [[ -f "${docker_config}.bak" ]]; then
+		mv "${docker_config}.bak" "${docker_config}"
 		# explicitly change default runtime as runc
-		updated_config=$(cat "${DOCKER_CONFIG}" | docker::config::restore_runtime)
+		updated_config=$(cat "${docker_config}" | docker::config::restore_runtime)
 	else
-		if [[ -f "${DOCKER_CONFIG}" ]]; then
-			rm "${DOCKER_CONFIG}"
+		if [[ -f "${docker_config}" ]]; then
+			rm "${docker_config}"
 		fi
 		# reset back to default settings
 		updated_config=$(echo "{}" | docker::config::restore_runtime)
 	fi
-	echo "${updated_config}" > "${DOCKER_CONFIG}"
+	echo "${updated_config}" > "${docker_config}"
 }
 
 docker::config::restore_runtime() {
@@ -71,7 +71,8 @@ docker::config::add_runtime() {
 }
 
 docker::config() {
-	([[ -f "${DOCKER_CONFIG}" ]] && cat "${DOCKER_CONFIG}") || echo {}
+	local docker_config=${1}
+	([[ -f "${docker_config}" ]] && cat "${docker_config}") || echo {}
 }
 
 docker::config::refresh() {
@@ -105,10 +106,11 @@ docker::usage() {
 Usage: $0 COMMAND [ARG...]
 
 Commands:
-  setup DESTINATION [-s | --socket DOCKER_SOCKET_PATH]
+  setup DESTINATION [-c | --config DOCKER_CONFIG_PATH] [-s | --socket DOCKER_SOCKET_PATH]
   cleanup
 
 Description
+  -c, --config	The path to the docker config
   -s, --socket	The path to the docker socket
   DESTINATION	The path where the toolkit directory resides (e.g: /usr/local/nvidia/toolkit).
 EOF
@@ -119,32 +121,34 @@ docker::setup() {
 	if [ $# -eq 0 ]; then docker::usage; exit 1; fi
 
 	local -r destination="${1}"; shift
+	local docker_config="/etc/docker/daemon.json"
 	local docker_socket="/var/run/docker.sock"
 
-	options=$(getopt -l socket: -o s: -- "$@")
+	options=$(getopt -l config:,socket: -o c:s: -- "$@")
 	if [[ "$?" -ne 0 ]]; then docker::usage; exit 1; fi
 
 	# set options to positional parameters
 	eval set -- "${options}"
 	for opt in ${options}; do
 		case "${opt}" in
+		-c | --config) docker_config="$2"; shift 2;;
 		-s | --socket) docker_socket="$2"; shift 2;;
 		--) shift; break;;
 		esac
 	done
 
 	# Make some checks
-	ensure::mounted /etc/docker
+	ensure::mounted $(dirname ${docker_config})
 
 	# This is a no-op
 	if docker::config::is_configured "${destination}" "${docker_socket}"; then
-		log INFO "Noop, docker is arlready setup with the runtime container"
+		log INFO "Noop, docker is already setup with the runtime container"
 		return
 	fi
 
 	# First try to update the existing config file
 	local updated_config
-	local -r config_file=$(docker::config)
+	local -r config_file=$(docker::config ${docker_config})
 	updated_config=$(echo "${config_file}" | docker::config::add_runtime "${destination}")
 
 	# If there was an error while parsing the file catch it here
@@ -153,9 +157,9 @@ docker::setup() {
 		updated_config=$(echo "{}" | docker::config::add_runtime "${destination}")
 	fi
 
-	docker::config::backup
-	echo "${updated_config}" > /etc/docker/daemon.json
-	docker::config::refresh
+	docker::config::backup ${docker_config}
+	echo "${updated_config}" > ${docker_config}
+	docker::config::refresh ${docker_config}
 }
 
 docker::cleanup() {
