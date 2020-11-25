@@ -13,12 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-testing::crio::main() {
-	testing::crio::bad_input
-	testing::crio::hook_created
-	testing::crio::hook_cleanup
-}
-
 testing::crio::bad_input() {
 	if testing::docker_run::toolkit::shell 'crio setup /run/\#nvidia/ --no-check'; then
 		log ERROR "Expected an error when DESTINATION contains a '#'"
@@ -40,4 +34,14 @@ testing::crio::hook_cleanup() {
 	testing::docker_run::toolkit::shell 'crio cleanup --no-check'
 
 	test -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
+}
+
+testing::crio::main() {
+	testing::crio::bad_input
+	testing::crio::hook_created
+	testing::crio::hook_cleanup
+}
+
+testing::crio::cleanup() {
+	:
 }

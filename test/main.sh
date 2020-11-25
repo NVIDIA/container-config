@@ -66,12 +66,12 @@ done
 
 trap '"$CLEANUP" && testing::cleanup' ERR
 
-for test_case in "toolkit" "docker" "crio"; do
-	testing::cleanup
-	testing::setup
-
-	log INFO "=================Testing ${test_case}================="
-	testing::${test_case}::main "$@"
-done
+readonly test_cases="toolkit docker crio"
 
 testing::cleanup
+for tc in ${test_cases}; do
+	log INFO "=================Testing ${tc}================="
+	testing::setup
+	testing::${tc}::main "$@"
+	testing::cleanup
+done
