@@ -23,6 +23,7 @@ source "${basedir}/common.sh"
 source "${basedir}/toolkit_test.sh"
 source "${basedir}/docker_test.sh"
 source "${basedir}/crio_test.sh"
+source "${basedir}/containerd_test.sh"
 
 CLEANUP=true
 
@@ -66,7 +67,7 @@ done
 
 trap '"$CLEANUP" && testing::cleanup' ERR
 
-readonly test_cases="toolkit docker crio"
+readonly test_cases="toolkit docker crio containerd"
 
 testing::cleanup
 for tc in ${test_cases}; do

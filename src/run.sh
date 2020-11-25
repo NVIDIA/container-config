@@ -47,13 +47,13 @@ Usage: $0 DESTINATION [-n | --no-daemon] [-t | --toolkit-args TOOLKIT_ARGS] [-r 
 
 Environment Variables:
   TOOLKIT_ARGS	Arguments to pass to the 'toolkit' command.
-  RUNTIME	The runtime to setup on this node. One of {'docker', 'crio'}, defaults to 'docker'.
-  RUNTIME_ARGS	Arguments to pass to the 'docker' or 'crio'.
+  RUNTIME		The runtime to setup on this node. One of {'docker', 'crio', 'containerd'}, defaults to 'docker'.
+  RUNTIME_ARGS	Arguments to pass to 'docker', 'crio', or 'containerd' setup command.
 
 Description
   -n, --no-daemon	Set this flag if the run file should terminate immediatly after setting up the runtime. Note that no cleanup will be performed.
   -t, --toolkit-args	Arguments to pass to the 'toolkit' command.
-  -r, --runtime-args	Arguments to pass to the 'docker' or 'crio'.
+  -r, --runtime-args	Arguments to pass to the 'docker', 'crio', or 'containerd'.
 EOF
 }
 
@@ -65,6 +65,7 @@ main() {
 	RUNTIME=${RUNTIME:-"docker"}
 	TOOLKIT_ARGS=${TOOLKIT_ARGS:-""}
 	RUNTIME_ARGS=${RUNTIME_ARGS:-""}
+
 
 	options=$(getopt -l no-daemon,toolkit-args:,runtime:,runtime-args: -o nt:r:u: -- "$@")
 	if [[ "$?" -ne 0 ]]; then usage; exit 1; fi
@@ -83,7 +84,7 @@ main() {
 	done
 
 	# Validate arguments
-	echo "${RUNTIME}" | ensure::oneof "docker" "crio"
+	echo "${RUNTIME}" | ensure::oneof "docker" "crio" "containerd"
 
 	_init
 	trap "_shutdown" EXIT
@@ -91,7 +92,11 @@ main() {
 	log INFO "=================Starting the NVIDIA Container Toolkit================="
 
 	toolkit "${destination}/toolkit" ${TOOLKIT_ARGS}
-	${RUNTIME} setup "${destination}/toolkit" ${RUNTIME_ARGS}
+	if [ "${RUNTIME}" = "containerd" ]; then
+		${RUNTIME} setup ${RUNTIME_ARGS} "${destination}/toolkit"
+	else
+		${RUNTIME} setup "${destination}/toolkit" ${RUNTIME_ARGS}
+	fi
 
 	if [[ "$DAEMON" -ne 0 ]]; then
 		exit 0
@@ -105,7 +110,11 @@ main() {
 	# Setup a new signal handler and reset the EXIT signal handler
 	trap "echo 'Caught signal'; \
 		_shutdown; \
-		${RUNTIME} cleanup ${destination}/toolkit; \
+		if [ \"${RUNTIME}\" = \"containerd\" ]; then \
+			${RUNTIME} cleanup ${RUNTIME_ARGS} \"${destination}/toolkit\"; \
+		else \
+			${RUNTIME} cleanup \"${destination}/toolkit\"; \
+		fi; \
 		{ kill $!; exit 0; }" HUP INT QUIT PIPE TERM
 	trap - EXIT
 
