@@ -41,7 +41,8 @@ ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
 RUN dnf install -y curl wget
 
-RUN wget -o /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+RUN wget -O /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 \
+	   && chmod +x /usr/local/bin/jq
 RUN curl -s -L https://nvidia.github.io/nvidia-docker/centos7/nvidia-docker.repo |\
     tee /etc/yum.repos.d/nvidia-docker.repo
 
@@ -49,7 +50,7 @@ ARG LIBNVIDIA_CONTAINER_VERSION
 ARG NVIDIA_CONTAINER_TOOLKIT_VERSION
 ARG NVIDIA_CONTAINER_RUNTIME_VERSION
 
-RUN yum install -y \
+RUN yum install -y procps \
     libnvidia-container1-${LIBNVIDIA_CONTAINER_VERSION} \
     libnvidia-container-tools-${LIBNVIDIA_CONTAINER_VERSION} \
     nvidia-container-toolkit-${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
