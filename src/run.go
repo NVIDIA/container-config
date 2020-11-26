@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
@@ -20,6 +22,9 @@ const (
 )
 
 var AvailableRuntimes = map[string]struct{}{"docker": {}, "crio": {}, "containerd": {}}
+
+var WaitingForSignal = make(chan bool, 1)
+var SignalReceived = make(chan bool, 1)
 
 var destinationArg string
 var noDaemonFlag bool
@@ -99,6 +104,13 @@ func Run(c *cli.Context) error {
 	}
 	defer Shutdown()
 
+	if !noDaemonFlag {
+		err = WaitForSignal()
+		if err != nil {
+			return fmt.Errorf("unable to wait for signal: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -142,6 +154,27 @@ func Initialize() error {
 		return fmt.Errorf("unable to write PID to pidfile: %v", err)
 	}
 
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		select {
+		case <-WaitingForSignal:
+			SignalReceived <- true
+		default:
+			log.Infof("Signal received, exiting early")
+			Shutdown()
+			os.Exit(0)
+		}
+	}()
+
+	return nil
+}
+
+func WaitForSignal() error {
+	log.Infof("Waiting for signal")
+	WaitingForSignal <- true
+	<-SignalReceived
 	return nil
 }
 
