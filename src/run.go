@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -12,8 +14,10 @@ import (
 )
 
 const (
-	RunDir  = "/run/nvidia"
-	PidFile = RunDir + "/toolkit.pid"
+	RunDir         = "/run/nvidia"
+	PidFile        = RunDir + "/toolkit.pid"
+	ToolkitCommand = "toolkit"
+	ToolkitSubDir  = "toolkit"
 
 	DefaultNoDaemon    = false
 	DefaultToolkitArgs = ""
@@ -187,10 +191,43 @@ func Initialize() error {
 }
 
 func InstallToolkit() error {
+	toolkitDir := filepath.Join(destinationArg, ToolkitSubDir)
+
+	log.Infof("Installing toolkit")
+
+	cmdline := fmt.Sprintf("%v %v %v\n", ToolkitCommand, toolkitDir, toolkitArgsFlag)
+	cmd := exec.Command("sh", "-c", cmdline)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error running %v command: %v", ToolkitCommand, err)
+	}
+
 	return nil
 }
 
 func SetupRuntime() error {
+	toolkitDir := filepath.Join(destinationArg, ToolkitSubDir)
+
+	log.Infof("Setting up runtime")
+
+	var cmdline string
+	switch runtimeFlag {
+	case "containerd":
+		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
+	default:
+		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, toolkitDir, runtimeArgsFlag)
+	}
+
+	cmd := exec.Command("sh", "-c", cmdline)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error running %v command: %v", runtimeFlag, err)
+	}
+
 	return nil
 }
 
@@ -202,6 +239,26 @@ func WaitForSignal() error {
 }
 
 func CleanupRuntime() error {
+	toolkitDir := filepath.Join(destinationArg, ToolkitSubDir)
+
+	log.Infof("Cleaning up Runtime")
+
+	var cmdline string
+	switch runtimeFlag {
+	case "containerd":
+		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
+	default:
+		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, toolkitDir, runtimeArgsFlag)
+	}
+
+	cmd := exec.Command("sh", "-c", cmdline)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error running %v command: %v", runtimeFlag, err)
+	}
+
 	return nil
 }
 
