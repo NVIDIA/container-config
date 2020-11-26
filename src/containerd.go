@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	toml "github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
@@ -15,13 +16,17 @@ import (
 )
 
 const (
-	RuntimeTypeV1       = "io.containerd.runtime.v1.linux"
-	RuntimeTypeV2       = "io.containerd.runc.v1"
-	RuntimeBinary       = "nvidia-container-runtime"
+	RuntimeTypeV1 = "io.containerd.runtime.v1.linux"
+	RuntimeTypeV2 = "io.containerd.runc.v1"
+	RuntimeBinary = "nvidia-container-runtime"
+
 	DefaultConfig       = "/etc/containerd/config.toml"
 	DefaultSocket       = "/run/containerd/containerd.sock"
 	DefaultRuntimeClass = "nvidia-container-runtime"
 	DefaultSetAsDefault = true
+
+	ReloadBackoff     = 5 * time.Second
+	MaxReloadAttempts = 6
 )
 
 var runtimeDirnameArg string
@@ -553,32 +558,55 @@ func FlushConfig(config *toml.Tree) error {
 func SignalContainerd() error {
 	log.Infof("Sending SIGHUP signal to containerd")
 
-	conn, err := net.Dial("unix", socketFlag)
-	if err != nil {
-		return fmt.Errorf("unable to dial: %v", err)
-	}
-	defer conn.Close()
+	// Wrap the logic to perform the SIGHUP in a function so we can retry it on failure
+	retriable := func() error {
+		conn, err := net.Dial("unix", socketFlag)
+		if err != nil {
+			return fmt.Errorf("unable to dial: %v", err)
+		}
+		defer conn.Close()
 
-	sconn, err := conn.(*net.UnixConn).SyscallConn()
-	if err != nil {
-		return fmt.Errorf("unable to get syscall connection: %v", err)
+		sconn, err := conn.(*net.UnixConn).SyscallConn()
+		if err != nil {
+			return fmt.Errorf("unable to get syscall connection: %v", err)
+		}
+
+		var ucred *unix.Ucred
+
+		err1 := sconn.Control(func(fd uintptr) {
+			ucred, err = unix.GetsockoptUcred(int(fd), unix.SOCK_STREAM, unix.SO_PEERCRED)
+		})
+		if err1 != nil {
+			return fmt.Errorf("unable to issue call on socket fd: %v", err1)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to GetsockoptUcred on socket fd: %v", err)
+		}
+
+		err = syscall.Kill(int(ucred.Pid), syscall.SIGHUP)
+		if err != nil {
+			return fmt.Errorf("unable to send SIGHUP to 'containerd' process: %v", err)
+		}
+
+		return nil
 	}
 
-	var ucred *unix.Ucred
-
-	err1 := sconn.Control(func(fd uintptr) {
-		ucred, err = unix.GetsockoptUcred(int(fd), unix.SOCK_STREAM, unix.SO_PEERCRED)
-	})
-	if err1 != nil {
-		return fmt.Errorf("unable to issue call on socket fd: %v", err)
+	// Try to send a SIGHUP up to MaxReloadAttempts times
+	var err error
+	for i := 0; i < MaxReloadAttempts; i++ {
+		err = retriable()
+		if err == nil {
+			break
+		}
+		if i == MaxReloadAttempts-1 {
+			break
+		}
+		log.Warnf("Error signaling containerd, attempt %v/%v: %v", i+1, MaxReloadAttempts, err)
+		time.Sleep(ReloadBackoff)
 	}
 	if err != nil {
-		return fmt.Errorf("unable to GetsockoptUcred on socket fd: %v", err)
-	}
-
-	err = syscall.Kill(int(ucred.Pid), syscall.SIGHUP)
-	if err != nil {
-		return fmt.Errorf("unable to send SIGHUP to 'containerd' process: %v", err)
+		log.Warnf("Max retries reached %v/%v, aborting", MaxReloadAttempts, MaxReloadAttempts)
+		return err
 	}
 
 	log.Infof("Successfully signaled containerd")
