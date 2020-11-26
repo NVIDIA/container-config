@@ -342,6 +342,7 @@ func UpdateV1Config(config *toml.Tree) error {
 			config.SetPath(append(defaultRuntimePath, "runtime_type"), RuntimeTypeV1)
 			config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
 			config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
+			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
 		}
 		config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
 	}
@@ -357,6 +358,12 @@ func RevertV1Config(config *toml.Tree) error {
 		"containerd",
 		"runtimes",
 		runtimeClassFlag,
+	}
+	defaultRuntimePath := []string{
+		"plugins",
+		"cri",
+		"containerd",
+		"default_runtime",
 	}
 	defaultRuntimeOptionsPath := []string{
 		"plugins",
@@ -381,10 +388,34 @@ func RevertV1Config(config *toml.Tree) error {
 		}
 	}
 
-	for i := 0; i < len(defaultRuntimeOptionsPath); i++ {
-		if runtimes, ok := config.GetPath(defaultRuntimeOptionsPath[:len(defaultRuntimeOptionsPath)-i]).(*toml.Tree); ok {
+	if options, ok := config.GetPath(defaultRuntimeOptionsPath).(*toml.Tree); ok {
+		if len(options.Keys()) == 0 {
+			config.DeletePath(defaultRuntimeOptionsPath)
+		}
+	}
+
+	if runtime, ok := config.GetPath(defaultRuntimePath).(*toml.Tree); ok {
+		fields := []string{"runtime_type", "runtime_root", "runtime_engine", "privileged_without_host_devices"}
+		if len(runtime.Keys()) <= len(fields) {
+			matches := []string{}
+			for _, f := range fields {
+				e := runtime.Get(f)
+				if e != nil {
+					matches = append(matches, f)
+				}
+			}
+			if len(matches) == len(runtime.Keys()) {
+				for _, m := range matches {
+					runtime.Delete(m)
+				}
+			}
+		}
+	}
+
+	for i := 0; i < len(defaultRuntimePath); i++ {
+		if runtimes, ok := config.GetPath(defaultRuntimePath[:len(defaultRuntimePath)-i]).(*toml.Tree); ok {
 			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(defaultRuntimeOptionsPath[:len(defaultRuntimeOptionsPath)-i])
+				config.DeletePath(defaultRuntimePath[:len(defaultRuntimePath)-i])
 			}
 		}
 	}
@@ -427,7 +458,6 @@ func UpdateV2Config(config *toml.Tree) error {
 		runtimeClassFlag,
 		"options",
 	}
-
 
 	switch runc := config.GetPath(runcPath).(type) {
 	case *toml.Tree:
