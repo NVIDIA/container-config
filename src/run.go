@@ -6,9 +6,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
+	unix "golang.org/x/sys/unix"
 )
 
 const (
+	RunDir  = "/run/nvidia"
+	PidFile = RunDir + "/toolkit.pid"
+
 	DefaultNoDaemon    = false
 	DefaultToolkitArgs = ""
 	DefaultRuntime     = "docker"
@@ -70,15 +74,15 @@ func main() {
 	}
 
 	// Run the CLI
+	log.Infof("Starting %v", c.Name)
 	if err := c.Run(os.Args); err != nil {
 		log.Fatal(fmt.Errorf("Error: %v", err))
 	}
+	log.Infof("Completed %v", c.Name)
 }
 
 // Run runs the core logic of the CLI
 func Run(c *cli.Context) error {
-	log.Infof("Starting %v", c.App.Name)
-
 	err := VerifyFlags()
 	if err != nil {
 		return fmt.Errorf("unable to verify flags: %v", err)
@@ -89,7 +93,11 @@ func Run(c *cli.Context) error {
 		return fmt.Errorf("unable to parse arguments: %v", err)
 	}
 
-	log.Infof("Completed %v", c.App.Name)
+	err = Initialize()
+	if err != nil {
+		return fmt.Errorf("unable to initialize: %v", err)
+	}
+	defer Shutdown()
 
 	return nil
 }
@@ -112,4 +120,36 @@ func ParseArgs(c *cli.Context) error {
 	destinationArg = args.Get(0)
 
 	return nil
+}
+
+func Initialize() error {
+	log.Infof("Initializing")
+
+	f, err := os.Create(PidFile)
+	if err != nil {
+		return fmt.Errorf("unable to create pidfile: %v", err)
+	}
+
+	err = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+	if err != nil {
+		log.Warnf("Unable to get exclusive lock on '%v'", PidFile)
+		log.Warnf("This normally means an instance of the NVIDIA toolkit Container is already running, aborting")
+		return fmt.Errorf("unable to get flock on pidfile: %v", err)
+	}
+
+	_, err = f.WriteString(fmt.Sprintf("%v\n", os.Getpid()))
+	if err != nil {
+		return fmt.Errorf("unable to write PID to pidfile: %v", err)
+	}
+
+	return nil
+}
+
+func Shutdown() {
+	log.Infof("Shutting Down")
+
+	err := os.Remove(PidFile)
+	if err != nil {
+		log.Warnf("Unable to remove pidfile: %v", err)
+	}
 }
