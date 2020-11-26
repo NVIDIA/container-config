@@ -15,6 +15,8 @@ const (
 	DefaultRuntimeArgs = ""
 )
 
+var AvailableRuntimes = map[string]struct{}{"docker": {}, "crio": {}, "containerd": {}}
+
 var destinationArg string
 var noDaemonFlag bool
 var toolkitArgsFlag string
@@ -75,5 +77,39 @@ func main() {
 
 // Run runs the core logic of the CLI
 func Run(c *cli.Context) error {
+	log.Infof("Starting %v", c.App.Name)
+
+	err := VerifyFlags()
+	if err != nil {
+		return fmt.Errorf("unable to verify flags: %v", err)
+	}
+
+	err = ParseArgs(c)
+	if err != nil {
+		return fmt.Errorf("unable to parse arguments: %v", err)
+	}
+
+	log.Infof("Completed %v", c.App.Name)
+
+	return nil
+}
+
+func VerifyFlags() error {
+	log.Infof("Verifying Flags")
+	if _, exists := AvailableRuntimes[runtimeFlag]; !exists {
+		return fmt.Errorf("unknown runtime: %v", runtimeFlag)
+	}
+	return nil
+}
+
+func ParseArgs(c *cli.Context) error {
+	args := c.Args()
+
+	log.Infof("Parsing arguments: %v", args.Slice())
+	if args.Len() != 1 {
+		return fmt.Errorf("incorrect number of arguments")
+	}
+	destinationArg = args.Get(0)
+
 	return nil
 }
