@@ -104,10 +104,25 @@ func Run(c *cli.Context) error {
 	}
 	defer Shutdown()
 
+	err = InstallToolkit()
+	if err != nil {
+		return fmt.Errorf("unable to install toolkit: %v", err)
+	}
+
+	err = SetupRuntime()
+	if err != nil {
+		return fmt.Errorf("unable to setup runtime: %v", err)
+	}
+
 	if !noDaemonFlag {
 		err = WaitForSignal()
 		if err != nil {
 			return fmt.Errorf("unable to wait for signal: %v", err)
+		}
+
+		err = CleanupRuntime()
+		if err != nil {
+			return fmt.Errorf("unable to cleanup runtime: %v", err)
 		}
 	}
 
@@ -171,10 +186,22 @@ func Initialize() error {
 	return nil
 }
 
+func InstallToolkit() error {
+	return nil
+}
+
+func SetupRuntime() error {
+	return nil
+}
+
 func WaitForSignal() error {
 	log.Infof("Waiting for signal")
 	WaitingForSignal <- true
 	<-SignalReceived
+	return nil
+}
+
+func CleanupRuntime() error {
 	return nil
 }
 
