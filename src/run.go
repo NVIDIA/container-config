@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -84,9 +85,17 @@ func main() {
 
 	// Run the CLI
 	log.Infof("Starting %v", c.Name)
-	if err := c.Run(os.Args); err != nil {
+
+	remainingArgs, err := ParseArgs(os.Args)
+	if err != nil {
+		log.Errorf("Error: unable to parse arguments: %v", err)
+		os.Exit(1)
+	}
+
+	if err := c.Run(remainingArgs); err != nil {
 		log.Fatal(fmt.Errorf("Error: %v", err))
 	}
+
 	log.Infof("Completed %v", c.Name)
 }
 
@@ -95,11 +104,6 @@ func Run(c *cli.Context) error {
 	err := VerifyFlags()
 	if err != nil {
 		return fmt.Errorf("unable to verify flags: %v", err)
-	}
-
-	err = ParseArgs(c)
-	if err != nil {
-		return fmt.Errorf("unable to parse arguments: %v", err)
 	}
 
 	err = Initialize()
@@ -133,23 +137,43 @@ func Run(c *cli.Context) error {
 	return nil
 }
 
+func ParseArgs(args []string) ([]string, error) {
+	log.Infof("Parsing arguments")
+
+	numPositionalArgs := 2 // Includes command itself
+
+	if len(args) < numPositionalArgs {
+		return nil, fmt.Errorf("missing arguments")
+	}
+
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			return []string{args[0], arg}, nil
+		}
+	}
+
+	for _, arg := range args[:numPositionalArgs] {
+		if strings.HasPrefix(arg, "-") {
+			return nil, fmt.Errorf("unexpected flag where argument should be")
+		}
+	}
+
+	for _, arg := range args[numPositionalArgs:] {
+		if !strings.HasPrefix(arg, "-") {
+			return nil, fmt.Errorf("unexpected argument where flag should be")
+		}
+	}
+
+	destinationArg = args[1]
+
+	return append([]string{args[0]}, args[numPositionalArgs:]...), nil
+}
+
 func VerifyFlags() error {
 	log.Infof("Verifying Flags")
 	if _, exists := AvailableRuntimes[runtimeFlag]; !exists {
 		return fmt.Errorf("unknown runtime: %v", runtimeFlag)
 	}
-	return nil
-}
-
-func ParseArgs(c *cli.Context) error {
-	args := c.Args()
-
-	log.Infof("Parsing arguments: %v", args.Slice())
-	if args.Len() != 1 {
-		return fmt.Errorf("incorrect number of arguments")
-	}
-	destinationArg = args.Get(0)
-
 	return nil
 }
 
