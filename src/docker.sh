@@ -159,11 +159,33 @@ docker::setup() {
 
 	docker::config::backup ${docker_config}
 	echo "${updated_config}" > ${docker_config}
-	docker::config::refresh ${docker_config}
+	docker::config::refresh
 }
 
 docker::cleanup() {
-	docker::config::restore
+	if [ $# -eq 0 ]; then docker::usage; exit 1; fi
+
+	local -r destination="${1}"; shift
+	local docker_config="/etc/docker/daemon.json"
+	local docker_socket="/var/run/docker.sock"
+
+	options=$(getopt -l config:,socket: -o c:s: -- "$@")
+	if [[ "$?" -ne 0 ]]; then docker::usage; exit 1; fi
+
+	# set options to positional parameters
+	eval set -- "${options}"
+	for opt in ${options}; do
+		case "${opt}" in
+		-c | --config) docker_config="$2"; shift 2;;
+		-s | --socket) docker_socket="$2"; shift 2;;
+		--) shift; break;;
+		esac
+	done
+
+	# Make some checks
+	ensure::mounted $(dirname ${docker_config})
+
+	docker::config::restore ${docker_config}
 	docker::config::refresh
 }
 
