@@ -22,7 +22,7 @@ const (
 
 	DefaultConfig       = "/etc/containerd/config.toml"
 	DefaultSocket       = "/run/containerd/containerd.sock"
-	DefaultRuntimeClass = "nvidia-container-runtime"
+	DefaultRuntimeClass = "nvidia"
 	DefaultSetAsDefault = true
 
 	ReloadBackoff     = 5 * time.Second
