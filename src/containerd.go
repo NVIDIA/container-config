@@ -469,7 +469,7 @@ func UpdateV2Config(config *toml.Tree) error {
 		runc, _ = toml.Load(runc.String())
 		config.SetPath(runtimeClassPath, runc)
 	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), RuntimeTypeV1)
+		config.SetPath(append(runtimeClassPath, "runtime_type"), RuntimeTypeV2)
 		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
 		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
 		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
