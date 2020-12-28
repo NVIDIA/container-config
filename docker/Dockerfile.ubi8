@@ -30,6 +30,7 @@ COPY src/. .
 
 RUN go build -o nvidia-toolkit run.go
 RUN go build -o containerd containerd.go
+RUN go build -o docker docker.go
 RUN rm -rf go.* && \
     rm -rf *.go && \
     rm -rf vendor
@@ -62,8 +63,7 @@ WORKDIR /work
 COPY --from=build /work /work
 
 RUN ln -s /work/toolkit.sh toolkit && \
-	ln -s /work/crio.sh crio && \
-	ln -s /work/docker.sh docker
+	ln -s /work/crio.sh crio
 
 ENV PATH=/work:$PATH
 
