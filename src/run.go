@@ -238,10 +238,10 @@ func SetupRuntime() error {
 
 	var cmdline string
 	switch runtimeFlag {
-	case "containerd":
-		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
-	default:
+	case "crio":
 		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, toolkitDir, runtimeArgsFlag)
+	default:
+		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
 	}
 
 	cmd := exec.Command("sh", "-c", cmdline)
@@ -269,10 +269,10 @@ func CleanupRuntime() error {
 
 	var cmdline string
 	switch runtimeFlag {
-	case "containerd":
-		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
-	default:
+	case "crio":
 		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, toolkitDir, runtimeArgsFlag)
+	default:
+		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
 	}
 
 	cmd := exec.Command("sh", "-c", cmdline)
