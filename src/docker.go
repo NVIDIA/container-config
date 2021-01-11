@@ -13,20 +13,21 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
-	unix "golang.org/x/sys/unix"
 )
 
 const (
 	RuntimeName   = "nvidia"
 	RuntimeBinary = "nvidia-container-runtime"
 
-	DefaultConfig        = "/etc/docker/daemon.json"
-	DefaultSocket        = "/var/run/docker.sock"
-	DefaultSetAsDefault  = true
-	DefaultDockerRuntime = "runc"
+	DefaultConfig       = "/etc/docker/daemon.json"
+	DefaultSocket       = "/var/run/docker.sock"
+	DefaultSetAsDefault = true
 
 	ReloadBackoff     = 5 * time.Second
 	MaxReloadAttempts = 6
+
+	DefaultDockerRuntime  = "runc"
+	SocketMessageToGetPID = "GET /info HTTP/1.0\r\n\r\n"
 )
 
 var runtimeDirnameArg string
@@ -307,16 +308,36 @@ func SignalDocker() error {
 			return fmt.Errorf("unable to get syscall connection: %v", err)
 		}
 
-		var ucred *unix.Ucred
-
 		err1 := sconn.Control(func(fd uintptr) {
-			ucred, err = unix.GetsockoptUcred(int(fd), unix.SOCK_STREAM, unix.SO_PEERCRED)
+			err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_PASSCRED, 1)
 		})
 		if err1 != nil {
 			return fmt.Errorf("unable to issue call on socket fd: %v", err1)
 		}
 		if err != nil {
-			return fmt.Errorf("unable to GetsockoptUcred on socket fd: %v", err)
+			return fmt.Errorf("unable to SetsockoptInt on socket fd: %v", err)
+		}
+
+		_, _, err = conn.(*net.UnixConn).WriteMsgUnix([]byte(SocketMessageToGetPID), nil, nil)
+		if err != nil {
+			return fmt.Errorf("unable to WriteMsgUnix on socket fd: %v", err)
+		}
+
+		oob := make([]byte, 1024)
+		_, oobn, _, _, err := conn.(*net.UnixConn).ReadMsgUnix(nil, oob)
+		if err != nil {
+			return fmt.Errorf("unable to ReadMsgUnix on socket fd: %v", err)
+		}
+
+		oob = oob[:oobn]
+		scm, err := syscall.ParseSocketControlMessage(oob)
+		if err != nil {
+			return fmt.Errorf("unable to ParseSocketControlMessage from message received on socket fd: %v", err)
+		}
+
+		ucred, err := syscall.ParseUnixCredentials(&scm[0])
+		if err != nil {
+			return fmt.Errorf("unable to ParseUnixCredentials from message received on socket fd: %v", err)
 		}
 
 		err = syscall.Kill(int(ucred.Pid), syscall.SIGHUP)
