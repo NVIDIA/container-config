@@ -33,50 +33,46 @@ NVIDIA_CONTAINER_TOOLKIT_VERSION=1.4.1
 NVIDIA_CONTAINER_RUNTIME_VERSION=3.4.1
 
 ##### Public rules #####
+DEFAULT_PUSH_TARGET := ubuntu18.04
+TARGETS := ubuntu18.04 ubuntu16.04 ubi8
 
-all: ubuntu18.04 ubuntu16.04
+PUSH_TARGETS := $(patsubst %, push-%, $(TARGETS))
+BUILD_TARGETS := $(patsubst %, build-%, $(TARGETS))
+TEST_TARGETS := $(patsubst %, test-%, $(TARGETS))
 
-push:
-	$(DOCKER) push "$(IMAGE):$(VERSION)-ubuntu18.04"
-	$(DOCKER) push "$(IMAGE):$(VERSION)-ubuntu16.04"
+.PHONY: $(TARGETS) $(PUSH_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
 
+all: $(TARGETS)
+
+push-all: $(PUSH_TARGETS)
+build-all: $(BUILD_TARGETS)
+
+$(PUSH_TARGETS): push-%:
+	$(DOCKER) push "$(IMAGE):$(VERSION)-$(*)"
+
+# For the default push target we also push the short and latest tags
+push-$(DEFAULT_PUSH_TARGET): push-short push-latest
 push-short:
-	$(DOCKER) tag "$(IMAGE):$(VERSION)-ubuntu18.04" "$(IMAGE):$(VERSION)"
+	$(DOCKER) tag "$(IMAGE):$(VERSION)-$(DEFAULT_PUSH_TARGET)" "$(IMAGE):$(VERSION)"
 	$(DOCKER) push "$(IMAGE):$(VERSION)"
 
 push-latest:
-	$(DOCKER) tag "$(IMAGE):$(VERSION)-ubuntu18.04" "$(IMAGE):latest"
+	$(DOCKER) tag "$(IMAGE):$(VERSION)-$(DEFAULT_PUSH_TARGET)" "$(IMAGE):latest"
 	$(DOCKER) push "$(IMAGE):latest"
 
-ubuntu18.04:
+# Both ubi8 and build-ubi8 trigger a build of the relevant image
+$(TARGETS): %: build-%
+$(BUILD_TARGETS): build-%:
 	$(DOCKER) build --pull \
-		--tag $(IMAGE):$(VERSION)-ubuntu18.04 \
+		--tag $(IMAGE):$(VERSION)-$(*) \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
-		--file docker/Dockerfile.ubuntu18.04 .
-
-ubuntu16.04:
-	$(DOCKER) build --pull \
-		--tag $(IMAGE):$(VERSION)-ubuntu16.04 \
-		--build-arg VERSION="$(VERSION)" \
-		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
-		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
-		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
-		--file docker/Dockerfile.ubuntu16.04 .
-
-ubi8:
-	$(DOCKER) build --pull \
-		--tag $(IMAGE):$(VERSION)-ubi8 \
-		--build-arg VERSION="$(VERSION)" \
-		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
-		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
-		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
-		--file docker/Dockerfile.ubi8 .
+		--file docker/Dockerfile.$(*) .
 
 clean:
 	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared
 
-test: build
-	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(IMAGE):$(VERSION) --no-cleanup-on-error
+$(TEST_TARGETS): test-%:
+	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
