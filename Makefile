@@ -71,8 +71,8 @@ $(BUILD_TARGETS): build-%:
 		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
 		--file docker/Dockerfile.$(*) .
 
-clean:
-	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared
+clean-%:
+	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared-$(*)
 
 $(TEST_TARGETS): test-%:
-	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
+	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared-$(*) $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
