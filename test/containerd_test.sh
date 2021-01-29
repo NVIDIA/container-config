@@ -49,7 +49,7 @@ testing::containerd::toolkit::run() {
 		-v "${shared_dir}/etc/containerd/config_${version}.toml:${containerd_dind_containerd_dir}/containerd.toml" \
 		--pid "container:${containerd_dind_ctr}" \
 		-e "RUNTIME=containerd" \
-		-e "RUNTIME_ARGS=--config=/${containerd_dind_containerd_dir}/containerd.toml --socket=${containerd_dind_containerd_dir}/containerd.sock" \
+		-e "RUNTIME_ARGS=--config=${containerd_dind_containerd_dir}/containerd.toml --socket=${containerd_dind_containerd_dir}/containerd.sock" \
 		--name "${containerd_test_ctr}" \
 		"${toolkit_container_image}" "/usr/local/nvidia" "--no-daemon"
 

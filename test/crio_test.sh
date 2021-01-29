@@ -23,9 +23,9 @@ testing::crio::bad_input() {
 testing::crio::hook_created() {
 	testing::docker_run::toolkit::shell 'crio setup /run/nvidia/ --no-check'
 
-	test ! -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
+	test ! -z "$(ls -A "${shared_dir}${CRIO_HOOKS_DIR}")"
 
-	cat "${shared_dir}/${CRIO_HOOKS_DIR}/${CRIO_HOOK_FILENAME}" | \
+	cat "${shared_dir}${CRIO_HOOKS_DIR}/${CRIO_HOOK_FILENAME}" | \
 		jq -r '.hook.path' | grep -q "/run/nvidia"
 	test $? -eq 0
 }
@@ -33,7 +33,7 @@ testing::crio::hook_created() {
 testing::crio::hook_cleanup() {
 	testing::docker_run::toolkit::shell 'crio cleanup --no-check'
 
-	test -z "$(ls -A "${shared_dir}/${CRIO_HOOKS_DIR}")"
+	test -z "$(ls -A "${shared_dir}${CRIO_HOOKS_DIR}")"
 }
 
 testing::crio::main() {

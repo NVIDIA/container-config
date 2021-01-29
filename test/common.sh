@@ -20,7 +20,7 @@ testing::setup() {
 	mkdir -p "${shared_dir}/run/docker/containerd"
 	mkdir -p "${shared_dir}/run/nvidia"
 	mkdir -p "${shared_dir}/usr/local/nvidia"
-	mkdir -p "${shared_dir}/${CRIO_HOOKS_DIR}"
+	mkdir -p "${shared_dir}${CRIO_HOOKS_DIR}"
 }
 
 testing::cleanup() {
@@ -44,6 +44,6 @@ testing::docker_run::toolkit::shell() {
 		-v "${shared_dir}/run/docker/containerd:/run/docker/containerd" \
 		-v "${shared_dir}/run/nvidia:/run/nvidia" \
 		-v "${shared_dir}/usr/local/nvidia:/usr/local/nvidia" \
-		-v "${shared_dir}/${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
+		-v "${shared_dir}${CRIO_HOOKS_DIR}:${CRIO_HOOKS_DIR}" \
 		"${toolkit_container_image}" "-c" "$*"
 }
