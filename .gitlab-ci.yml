@@ -1,37 +1,78 @@
-image: docker:latest
+image: docker:stable
 
 services:
-  - docker:dind
+  - docker:stable-dind
 
 stages:
   - build
   - test
   - release
 
-build:
+# The .build step forms the base of the image builds with each variant
+# defined as a build-${VARIANT} step.
+.build:
   stage: build
-  script:
+  variables:
+    REGISTRY: "${CI_REGISTRY_IMAGE}"
+    VERSION: "${CI_COMMIT_SHA}"
+  before_script:
     - apk add make
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - echo "Building ${CI_REGISTRY_IMAGE}/container-toolkit:${VERSION}-${TARGET}"
+  script:
+    - make build-${TARGET}
+    - make push-${TARGET}
 
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" all
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push-short
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push-latest
+build-ubuntu16:
+  extends: .build
+  variables:
+    TARGET: ubuntu16.04
 
-integration:
+build-ubuntu18:
+  extends: .build
+  variables:
+    TARGET: ubuntu18.04
+
+build-ubi8:
+  extends: .build
+  variables:
+    TARGET: ubi8
+
+
+# A base step for defining integration tests.
+.integration:
   stage: test
+  variables:
+    VERSION: "${CI_COMMIT_SHA}"
+    IMAGE: "${IMAGE_NAME}"
   except:
     variables:
     - $CI_COMMIT_MESSAGE =~ /\[skip[ _-]tests?\]/i
     - $SKIP_TESTS
-  services:
-    - docker:dind
-  image: docker:stable
-  script:
+  before_script:
     - apk add make bash jq
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" test
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE_NAME}:${VERSION}-${TARGET}"
+  script:
+    - make test-${TARGET}
 
+integration-ubuntu16:
+  extends: .integration
+  variables:
+    TARGET: ubuntu16.04
+    SKIP_TESTS: "true"
+
+integration-ubuntu18:
+  extends: .integration
+  variables:
+    TARGET: ubuntu18.04
+
+integration-ubi8:
+  extends: .integration
+  variables:
+    TARGET: ubi8
+    SKIP_TESTS: "true"
 
 release:
   stage: release
