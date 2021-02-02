@@ -1,58 +1,10 @@
-default:
-  image: docker:stable
-  services:
-    - docker:stable-dind
-
-variables:
-  # this is used because CI_PROJECT_NAME is not the same
-  # as the image name used for this project
-  IMAGE_NAME: "container-toolkit"
+include:
+  - local: '.common-ci.yml'
 
 stages:
   - build
   - test
   - deploy
-
-.target-ubuntu16:
-  variables:
-    TARGET: ubuntu16.04
-
-.target-ubuntu18:
-  variables:
-    TARGET: ubuntu18.04
-
-.target-ubi8:
-  variables:
-    TARGET: ubi8
-
-# The .build step forms the base of the image builds with each variant
-# defined as a build-${VARIANT} step.
-.build:
-  stage: build
-  variables:
-    REGISTRY: "${CI_REGISTRY_IMAGE}"
-    VERSION: "${CI_COMMIT_SHA}"
-  before_script:
-    - apk add make
-    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-  script:
-    - make build-${TARGET}
-    - make push-${TARGET}
-
-build-ubuntu16:
-  extends:
-    - .build
-    - .target-ubuntu16
-
-build-ubuntu18:
-  extends:
-    - .build
-    - .target-ubuntu18
-
-build-ubi8:
-  extends:
-    - .build
-    - .target-ubi8
 
 # A base step for defining integration tests.
 .integration:
@@ -73,14 +25,14 @@ build-ubi8:
     - make test-${TARGET}
 
 integration-ubuntu16:
-  extends: 
+  extends:
     - .integration
     - .target-ubuntu16
   variables:
     SKIP_TESTS: "true"
 
 integration-ubuntu18:
-  extends: 
+  extends:
     - .integration
     - .target-ubuntu18
 
@@ -90,35 +42,3 @@ integration-ubi8:
     - .target-ubi8
   variables:
     SKIP_TESTS: "true"
-
-# Push images to the CI registry
-.deploy:
-  stage: deploy
-  variables:
-    REGISTRY: "${CI_REGISTRY_IMAGE}"
-  before_script:
-    - apk add --no-cache make bash
-    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-  script:
-    - make push-${TARGET}
-
-.deploy:sha:
-  extends:.deploy
-  variables:
-    VERSION: "${CI_COMMIT_SHA}"
-
-deploy:sha-ubuntu16:
-  extends:
-    - .deploy:sha
-    - .target-ubuntu16
-
-deploy:sha-ubuntu18:
-  extends:
-    - .deploy:sha
-    - .target-ubuntu18
-
-deploy:sha-ubi8:
-  extends:
-    - .deploy:sha
-    - .target-ubi8
