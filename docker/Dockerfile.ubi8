@@ -41,7 +41,7 @@ ENV NVIDIA_DISABLE_REQUIRE="true"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
-RUN dnf install -y curl wget
+RUN dnf install -y curl wget yum-utils
 
 RUN wget -O /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 \
 	   && chmod +x /usr/local/bin/jq
@@ -52,11 +52,15 @@ ARG LIBNVIDIA_CONTAINER_VERSION
 ARG NVIDIA_CONTAINER_TOOLKIT_VERSION
 ARG NVIDIA_CONTAINER_RUNTIME_VERSION
 
-RUN yum install -y procps \
-    libnvidia-container1-${LIBNVIDIA_CONTAINER_VERSION} \
-    libnvidia-container-tools-${LIBNVIDIA_CONTAINER_VERSION} \
-    nvidia-container-toolkit-${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
-    nvidia-container-runtime-${NVIDIA_CONTAINER_RUNTIME_VERSION}
+RUN yum-config-manager --enable libnvidia-container-experimental && \
+    yum-config-manager --enable nvidia-container-runtime-experimental
+
+RUN /bin/bash -c " \
+    yum install -y procps \
+    libnvidia-container1-\${LIBNVIDIA_CONTAINER_VERSION/-/-0.1.} \
+    libnvidia-container-tools-\${LIBNVIDIA_CONTAINER_VERSION/-/-0.1.} \
+    nvidia-container-toolkit-\${NVIDIA_CONTAINER_TOOLKIT_VERSION/-/-0.1.} \
+    nvidia-container-runtime-\${NVIDIA_CONTAINER_RUNTIME_VERSION/-/-0.1.}"
 
 WORKDIR /work
 
