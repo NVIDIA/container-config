@@ -1,47 +1,44 @@
-image: docker:latest
-
-services:
-  - docker:dind
+include:
+  - local: '.common-ci.yml'
 
 stages:
   - build
   - test
-  - release
+  - deploy
 
-build:
-  stage: build
-  script:
-    - apk add make
-    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" all
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push-short
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" push-latest
-
-integration:
+# A base step for defining integration tests.
+.integration:
   stage: test
+  variables:
+    VERSION: "${CI_COMMIT_SHA}"
+    IMAGE: "${IMAGE_NAME}"
   except:
     variables:
     - $CI_COMMIT_MESSAGE =~ /\[skip[ _-]tests?\]/i
     - $SKIP_TESTS
-  services:
-    - docker:dind
-  image: docker:stable
-  script:
+  before_script:
     - apk add make bash jq
-    - make REGISTRY="${CI_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_SHA}" test
-
-
-release:
-  stage: release
-  only:
-    - tags
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE_NAME}:${VERSION}-${TARGET}"
   script:
-    - apk add make
-    - docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}"
+    - make test-${TARGET}
 
-    - make VERSION="${CI_COMMIT_TAG#v}" all
-    - make VERSION="${CI_COMMIT_TAG#v}" push
-    - make VERSION="${CI_COMMIT_TAG#v}" push-short
-    - make VERSION="${CI_COMMIT_TAG#v}" push-latest
+integration-ubuntu16:
+  extends:
+    - .integration
+    - .target-ubuntu16
+  variables:
+    SKIP_TESTS: "true"
+
+integration-ubuntu18:
+  extends:
+    - .integration
+    - .target-ubuntu18
+
+integration-ubi8:
+  extends:
+    - .integration
+    - .target-ubi8
+  variables:
+    SKIP_TESTS: "true"

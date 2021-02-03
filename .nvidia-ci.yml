@@ -16,10 +16,11 @@
 ## REGISTRY_IMAGE
 ##
 
+# We include the public gitlab CI definition to reuse the steps defined there
+include:
+  - local: '.common-ci.yml'
+
 default:
-  image: docker:stable
-  services:
-    - docker:stable-dind
   tags:
     - type/docker
     - docker/privileged
@@ -30,9 +31,6 @@ default:
 variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
-  # this is used because CI_PROJECT_NAME is not the same
-  # as the image name used for this project
-  IMAGE_NAME: "container-toolkit"
 
 stages:
   - build
@@ -44,145 +42,135 @@ stages:
 .builddep_setup: &builddep_setup
   - apk add --no-cache bash findutils libmagic curl make git
 
-.testdep_setup: &testdep_setup
-  - apk add --no-cache bash make perl
-
-.python_setup: &python_setup
-  - apk add --no-cache python3 python3-dev py3-pip py3-wheel
-
 .ci_login_setup: &ci_login_setup
   - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
 
-# tags pulled images with $CI_PROJECT_NAME to work-around issue with contamer's support for local scans.
-.pull_images: &pull_images
-  - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04"
-  - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04"
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04" "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04"
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04" "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04"
+.pull_image: &pull_image
+  - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
 
-# Assumes ${OUT_IMAGE} is defined
-.tag_images: &tag_images
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04" "${OUT_IMAGE}:${CI_COMMIT_TAG#v}-ubuntu16.04"
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04" "${OUT_IMAGE}:${CI_COMMIT_TAG#v}-ubuntu18.04"
+.tag_image: &tag_image
+  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE}:${VERSION}-${TARGET}"
 
-.build_action: &build_action
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" all
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push-short
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push-latest
-
-.test_action: &test_action
-  - "true"
-
-.deploy_action: &deploy_action
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push-short
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_SHA}" push-latest
-
-.deploy_tag_action: &deploy_tag_action
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push-short
-  - make IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}" VERSION="${CI_COMMIT_TAG#v}" push-latest
-
-# contamer does not support local scans on images that contain a port number
-.scan_action: &scan_action
-  - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/sectooling/scanning/contamer.git
-  - cd contamer
-  - pip3 install -r requirements.txt
-  - python3 contamer.py -ls --fail-on-non-os ${CONTAMER_SUPPRESS_VULNS:+--suppress-vulns ${CONTAMER_SUPPRESS_VULNS}} -- "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu16.04"
-  - python3 contamer.py -ls --fail-on-non-os ${CONTAMER_SUPPRESS_VULNS:+--suppress-vulns ${CONTAMER_SUPPRESS_VULNS}} -- "${IMAGE_NAME}:${CI_COMMIT_SHA}-ubuntu18.04"
-
-.release_ngc_action: &release_ngc_action
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push-short
-  - make IMAGE="${NGC_REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push-latest
-
-.release_dockerhub_action: &release_dockerhub_action
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push-short
-  - make IMAGE="${REGISTRY_IMAGE}" VERSION="${CI_COMMIT_TAG#v}" push-latest
-
-build:
-  stage: build
-  script:
-    - *builddep_setup
-    - *ci_login_setup
-    - *build_action
-
-test:
+# Note: The integration tests are disabled for this repository.
+# Here we fail them, but allow the pipeline to continue.
+skipped_integration:
   stage: test
-  except:
-    variables:
-    - $CI_COMMIT_MESSAGE =~ /\[skip[ _-]tests?\]/i
-    - $SKIP_TESTS
+  allow_failure: true
   script:
-    - *testdep_setup
-    - *test_action
+    - echo "Tests are not enabled"
+    - exit 1
 
-scan:
+# The .scan step forms the base of the image scan operation performed before releasing
+# images.
+.scan:
   stage: scan
+  variables:
+    REGISTRY: "${CI_REGISTRY_IMAGE}"
+    VERSION: "${CI_COMMIT_SHA}"
+    IMAGE: "${IMAGE_NAME}"
   except:
     variables:
     - $CI_COMMIT_MESSAGE =~ /\[skip[ _-]scans?\]/i
     - $SKIP_SCANS
-  script:
-    - *builddep_setup
-    - *python_setup
+  before_script:
+    - apk add --no-cache git
+    - apk add --no-cache python3 python3-dev py3-pip py3-wheel libmagic
     - *ci_login_setup
-    - *pull_images
-    - *scan_action
-
-deploy:sha:
-  stage: deploy
+    - *pull_image
+    - *tag_image
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/sectooling/scanning/contamer.git
+    - pip3 install -r contamer/requirements.txt
   script:
-    - *builddep_setup
-    - *ci_login_setup
-    - *pull_images
-    - *deploy_action
+    - cd contamer
+    - python3 contamer.py -ls --fail-on-non-os ${CONTAMER_SUPPRESS_VULNS:+--suppress-vulns ${CONTAMER_SUPPRESS_VULNS}} -- "${IMAGE_NAME}:${VERSION}-${TARGET}"
 
-deploy:tag:
-  stage: deploy
-  only:
-    - tags
-  variables:
-    OUT_IMAGE: ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}
-  script:
-    - *builddep_setup
-    - *ci_login_setup
-    - *pull_images
-    - *tag_images
-    - *deploy_tag_action
+scan-ubuntu16:
+  extends:
+    - .scan
+    - .target-ubuntu16
+  
+scan-ubuntu18:
+  extends:
+    - .scan
+    - .target-ubuntu18
 
-release:ngc:
+scan-ubi8:
+  extends:
+    - .scan
+    - .target-ubi8
+
+deploy:tag-ubuntu16:
+  extends:
+    - .deploy:tag
+    - .target-ubuntu16
+
+deploy:tag-ubuntu18:
+  extends:
+    - .deploy:tag
+    - .target-ubuntu18
+
+deploy:tag-ubi8:
+  extends:
+    - .deploy:tag
+    - .target-ubi8
+
+# .release forms the base of jobs in the release stage. These 
+# build, tag, and release images to the relevant image registry
+.release:
   stage: release
   only:
     - tags
   variables:
-    OUT_IMAGE: ${NGC_REGISTRY_IMAGE}
+    VERSION: "${CI_COMMIT_TAG#v}"
   script:
-    - 'echo Commit Tag: $CI_COMMIT_TAG ; [[ -n "$CI_COMMIT_TAG" ]] || exit 1'
+    - 'echo Version: $VERSION ; [[ -n "$VERSION" ]] || exit 1'
     - *builddep_setup
     - *ci_login_setup
-    - *pull_images
-    - *tag_images
+    - *pull_image
+    - *tag_image
+    - make push-${TARGET}
+
+.release:ngc:
+  extends: .release
+  variables:
+    IMAGE: ${NGC_REGISTRY_IMAGE}
+  before_script:
     - docker login -u "${NGC_REGISTRY_USER}" -p "${NGC_REGISTRY_TOKEN}" "${NGC_REGISTRY}"
-    - *release_ngc_action
-  dependencies:
-    - deploy:tag
-
-release:dockerhub:
-  stage: release
-  only:
-    - tags
+  
+.release:dockerhub:
+  extends: .release
   variables:
-    OUT_IMAGE: ${REGISTRY_IMAGE}
-  script:
-    - 'echo Commit Tag: $CI_COMMIT_TAG ; [[ -n "$CI_COMMIT_TAG" ]] || exit 1'
-    - *builddep_setup
-    - *ci_login_setup
-    - *pull_images
-    - *tag_images
+    IMAGE: ${REGISTRY_IMAGE}
+  before_script:
     - docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}"
-    - *release_dockerhub_action
-  dependencies:
-    - deploy:tag
+
+release:ngc-ubuntu16:
+  extends:
+    - .release:ngc
+    - .target-ubuntu16
+
+release:ngc-ubuntu18:
+  extends:
+    - .release:ngc
+    - .target-ubuntu18
+
+release:ngc-ubi8:
+  extends:
+    - .release:ngc
+    - .target-ubi8
+
+release:dockerhub-ubuntu16:
+  extends:
+    - .release:ngc
+    - .target-ubuntu16
+
+release:dockerhub-ubuntu18:
+  extends:
+    - .release:ngc
+    - .target-ubuntu18
+
+release:dockerhub-ubi8:
+  extends:
+    - .release:ngc
+    - .target-ubi8
+
