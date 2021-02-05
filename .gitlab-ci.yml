@@ -8,6 +8,7 @@ stages:
 
 # A base step for defining integration tests.
 .integration:
+  allow_failure: true
   stage: test
   variables:
     VERSION: "${CI_COMMIT_SHA}"
