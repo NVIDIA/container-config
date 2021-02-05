@@ -2,9 +2,11 @@ include:
   - local: '.common-ci.yml'
 
 stages:
+  - version
   - build
   - test
   - deploy
+  - release
 
 # A base step for defining integration tests.
 .integration:

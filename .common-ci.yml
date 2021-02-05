@@ -7,6 +7,7 @@ variables:
   # this is used because CI_PROJECT_NAME is not the same
   # as the image name used for this project
   IMAGE_NAME: "container-toolkit"
+  DOCKERHUB_REGISTRY: "registry-1.docker.io"
 
 # Define the following dummy targets for specifying make targets through the TARGET variable
 .target-ubuntu16:
@@ -55,17 +56,19 @@ build-ubi8:
 # target os.
 .deploy:
   stage: deploy
-  variables:
-    REGISTRY: "${CI_REGISTRY_IMAGE}"
   before_script:
+    # In the case where we are deploying a different version to the CI_COMMIT_SHA, we
+    # need to tag the image.
+    # Note: a leading 'v' is stripped from the version if present
+    - 'echo Version: ${VERSION#v} ; [[ -n "${VERSION#v}" ]] || exit 1'
     - apk add --no-cache make bash
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}"
   script:
-    # In the case where we are deploying a different version to the CI_COMMIT_SHA, we
-    # need to tag the image
-    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-    - docker push "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+    # Log in to the "output" registry, tag the image and push the image
+    - docker login -u "${OUT_REGISTRY_USER}" -p "${OUT_REGISTRY_TOKEN}" "${OUT_REGISTRY}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${OUT_IMAGE}:${VERSION#v}-${TARGET}"
+    - make IMAGE=${OUT_IMAGE} VERSION=${VERSION#v} push-${TARGET}
 
 # .deploy:sha sets the internal deployment version to the git SHA
 .deploy:sha:
@@ -73,47 +76,67 @@ build-ubi8:
   variables:
     VERSION: "${CI_COMMIT_SHA}"
 
-# .deploy:sha sets the internal deployment version to the git TAG
-# A leading v is stripped
-.deploy:tag:
-  allow_failure: true
+.deploy:ci:
   extends: .deploy
-  script:
-    - echo ${CI_COMMIT_TAG}
-    - echo ${CI_COMMIT_REF_NAME}
-    - VERSION=${CI_COMMIT_TAG#v}
-    - 'echo Version: $VERSION ; [[ -n "$VERSION" ]] || exit 1'
-    # In the case where we are deploying a different version to the CI_COMMIT_SHA, we
-    # need to tag the image
-    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-    - docker push "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+  variables:
+    OUT_REGISTRY_USER: ${CI_REGISTRY_USER}
+    OUT_REGISTRY_TOKEN: ${CI_REGISTRY_PASSWORD}
+    OUT_REGISTRY: ${CI_REGISTRY}
+    OUT_IMAGE: ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}
 
-deploy:sha-ubuntu16:
+deploy:sha-ci-ubuntu16:
   extends:
+    - .deploy:ci
     - .deploy:sha
     - .target-ubuntu16
 
-deploy:sha-ubuntu18:
+deploy:sha-ci-ubuntu18:
   extends:
+    - .deploy:ci
     - .deploy:sha
     - .target-ubuntu18
 
-deploy:sha-ubi8:
+deploy:sha-ci-ubi8:
   extends:
+    - .deploy:ci
     - .deploy:sha
     - .target-ubi8
 
-deploy:tag-ubuntu16:
+# A release job is a deployment job that has a different output version / image
+.release:
+  extends: .deploy
+  stage: release
+  variables:
+    # We use the CI_COMMIT_REF_SLUG as the release version as this covers tags and non-tags (for staging releases)
+    VERSION: "${CI_COMMIT_REF_SLUG}"
+
+# Define a staging release step that pushes an image to an internal "stagin" repository
+# This is triggered for all pipelines (i.e. not only tags) to test the pipeline steps
+# outside of the release process.
+.release:staging:
+  extends: .release
+  variables:
+    OUT_REGISTRY_USER: ${CI_REGISTRY_USER}
+    OUT_REGISTRY_TOKEN: ${CI_REGISTRY_PASSWORD}
+    OUT_REGISTRY: ${CI_REGISTRY}
+    OUT_IMAGE: ${CI_REGISTRY_IMAGE}/staging/${IMAGE_NAME}
+
+.release:external:
+  extends: .release
+  only:
+    - tags
+
+release:staging-ubuntu16:
   extends:
-    - .deploy:tag
+    - .release:staging
     - .target-ubuntu16
 
-deploy:tag-ubuntu18:
+release:staging-ubuntu18:
   extends:
-    - .deploy:tag
+    - .release:staging
     - .target-ubuntu18
 
-deploy:tag-ubi8:
+release:staging-ubi8:
   extends:
-    - .deploy:tag
+    - .release:staging
     - .target-ubi8

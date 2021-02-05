@@ -14,7 +14,7 @@
 ## REGISTRY_TOKEN
 ## REGISTRY_USER
 ## REGISTRY_IMAGE
-##
+## DOCKERHUB_REGISTRY
 
 # We include the public gitlab CI definition to reuse the steps defined there
 include:
@@ -38,18 +38,6 @@ stages:
   - scan
   - deploy
   - release
-
-.builddep_setup: &builddep_setup
-  - apk add --no-cache bash findutils libmagic curl make git
-
-.ci_login_setup: &ci_login_setup
-  - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-
-.pull_image: &pull_image
-  - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-
-.tag_image: &tag_image
-  - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE}:${VERSION}-${TARGET}"
 
 # Note: The integration tests are disabled for this repository.
 # Here we fail them, but allow the pipeline to continue.
@@ -75,9 +63,9 @@ skipped_integration:
   before_script:
     - apk add --no-cache git
     - apk add --no-cache python3 python3-dev py3-pip py3-wheel libmagic
-    - *ci_login_setup
-    - *pull_image
-    - *tag_image
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE}:${VERSION}-${TARGET}"
     - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/sectooling/scanning/contamer.git
     - pip3 install -r contamer/requirements.txt
   script:
@@ -99,43 +87,22 @@ scan-ubi8:
     - .scan
     - .target-ubi8
 
-deploy:tag-ubuntu16:
-  allow_failure: false
-
-deploy:tag-ubuntu18:
-  allow_failure: false
-
-deploy:tag-ubi8:
-  allow_failure: false
-
-# .release forms the base of jobs in the release stage. These
-# build, tag, and release images to the relevant image registry
-.release:
-  stage: release
-  only:
-    - tags
-  script:
-    - VERSION="${CI_COMMIT_TAG#v}"
-    - 'echo Version: $VERSION ; [[ -n "$VERSION" ]] || exit 1'
-    - *builddep_setup
-    - *ci_login_setup
-    - *pull_image
-    - *tag_image
-    - make push-${TARGET}
-
+# Define the external release steps for NGC and Dockerhub
 .release:ngc:
-  extends: .release
+  extends: .release:external
   variables:
-    IMAGE: ${NGC_REGISTRY_IMAGE}
-  before_script:
-    - docker login -u "${NGC_REGISTRY_USER}" -p "${NGC_REGISTRY_TOKEN}" "${NGC_REGISTRY}"
+    OUT_REGISTRY_USER: ${NGC_REGISTRY_USER}
+    OUT_REGISTRY_TOKEN: ${NGC_REGISTRY_TOKEN}
+    OUT_REGISTRY: ${NGC_REGISTRY}
+    OUT_IMAGE: ${NGC_REGISTRY_IMAGE}
 
 .release:dockerhub:
-  extends: .release
+  extends: .release:external
   variables:
-    IMAGE: ${REGISTRY_IMAGE}
-  before_script:
-    - docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}"
+    OUT_REGISTRY_USER: ${REGISTRY_USER}
+    OUT_REGISTRY_TOKEN: ${REGISTRY_TOKEN}
+    OUT_REGISTRY: ${DOCKERHUB_REGISTRY}
+    OUT_IMAGE: ${REGISTRY_IMAGE}
 
 release:ngc-ubuntu16:
   extends:
