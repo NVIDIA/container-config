@@ -88,7 +88,7 @@ scan-ubuntu16:
   extends:
     - .scan
     - .target-ubuntu16
-  
+
 scan-ubuntu18:
   extends:
     - .scan
@@ -114,7 +114,7 @@ deploy:tag-ubi8:
     - .deploy:tag
     - .target-ubi8
 
-# .release forms the base of jobs in the release stage. These 
+# .release forms the base of jobs in the release stage. These
 # build, tag, and release images to the relevant image registry
 .release:
   stage: release
@@ -136,7 +136,7 @@ deploy:tag-ubi8:
     IMAGE: ${NGC_REGISTRY_IMAGE}
   before_script:
     - docker login -u "${NGC_REGISTRY_USER}" -p "${NGC_REGISTRY_TOKEN}" "${NGC_REGISTRY}"
-  
+
 .release:dockerhub:
   extends: .release
   variables:
