@@ -65,7 +65,7 @@ build-ubi8:
     # In the case where we are deploying a different version to the CI_COMMIT_SHA, we
     # need to tag the image
     - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-    - make push-${TARGET}
+    - docker push "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
 
 # .deploy:sha sets the internal deployment version to the git SHA
 .deploy:sha:
@@ -73,25 +73,20 @@ build-ubi8:
   variables:
     VERSION: "${CI_COMMIT_SHA}"
 
-# .deploy:shortsha acts as a test for the non-sha deploy step in open repos
-.deploy:shortsha:
-  extends: .deploy
-  variables:
-    TEST_TAG: "${${CI_COMMIT_TAG:-${CI_COMMIT_SHORT_SHA}}#v}"
-    VERSION: "${CI_COMMIT_SHORT_SHA}"
-  after_script:
-    - echo "TEST_TAG=${TEST_TAG}"
-    - echo "CI_COMMIT_TAG=${CI_COMMIT_TAG}"
-    - echo "CI_COMMIT_SHORT_SHA=${CI_COMMIT_SHORT_SHA}"
-
 # .deploy:sha sets the internal deployment version to the git TAG
 # A leading v is stripped
 .deploy:tag:
+  allow_failure: true
   extends: .deploy
-  only:
-    - tags
-  variables:
-    VERSION: "${CI_COMMIT_TAG#v}"
+  script:
+    - echo ${CI_COMMIT_TAG}
+    - echo ${CI_COMMIT_REF_NAME}
+    - VERSION=${CI_COMMIT_TAG#v}
+    - 'echo Version: $VERSION ; [[ -n "$VERSION" ]] || exit 1'
+    # In the case where we are deploying a different version to the CI_COMMIT_SHA, we
+    # need to tag the image
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - docker push "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
 
 deploy:sha-ubuntu16:
   extends:
@@ -108,17 +103,17 @@ deploy:sha-ubi8:
     - .deploy:sha
     - .target-ubi8
 
-deploy:shortsha-ubuntu16:
+deploy:tag-ubuntu16:
   extends:
-    - .deploy:shortsha
+    - .deploy:tag
     - .target-ubuntu16
 
-deploy:shortsha-ubuntu18:
+deploy:tag-ubuntu18:
   extends:
-    - .deploy:shortsha
+    - .deploy:tag
     - .target-ubuntu18
 
-deploy:shortsha-ubi8:
+deploy:tag-ubi8:
   extends:
-    - .deploy:shortsha
+    - .deploy:tag
     - .target-ubi8
