@@ -36,7 +36,7 @@ variables:
     - make push-${TARGET}
 
 build-ubuntu16:
-  extends: 
+  extends:
     - .build
     - .target-ubuntu16
 
@@ -46,12 +46,12 @@ build-ubuntu18:
     - .target-ubuntu18
 
 build-ubi8:
-  extends: 
+  extends:
     - .build
     - .target-ubi8
 
 # .deploy forms the base of the deployment jobs which push images to the CI registry.
-# This is extended with the version to be deployed (e.g. the SHA or TAG) and the 
+# This is extended with the version to be deployed (e.g. the SHA or TAG) and the
 # target os.
 .deploy:
   stage: deploy
@@ -60,8 +60,11 @@ build-ubi8:
   before_script:
     - apk add --no-cache make bash
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}"
   script:
+    # In the case where we are deploying a different version to the CI_COMMIT_SHA, we
+    # need to tag the image
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
     - make push-${TARGET}
 
 # .deploy:sha sets the internal deployment version to the git SHA
@@ -69,6 +72,17 @@ build-ubi8:
   extends: .deploy
   variables:
     VERSION: "${CI_COMMIT_SHA}"
+
+# .deploy:shortsha acts as a test for the non-sha deploy step in open repos
+.deploy:shortsha:
+  extends: .deploy
+  variables:
+    TEST_TAG: "${${CI_COMMIT_TAG:-${CI_COMMIT_SHORT_SHA}}#v}"
+    VERSION: "${CI_COMMIT_SHORT_SHA}"
+  after_script:
+    - echo "TEST_TAG=${TEST_TAG}"
+    - echo "CI_COMMIT_TAG=${CI_COMMIT_TAG}"
+    - echo "CI_COMMIT_SHORT_SHA=${CI_COMMIT_SHORT_SHA}"
 
 # .deploy:sha sets the internal deployment version to the git TAG
 # A leading v is stripped
@@ -92,4 +106,19 @@ deploy:sha-ubuntu18:
 deploy:sha-ubi8:
   extends:
     - .deploy:sha
+    - .target-ubi8
+
+deploy:shortsha-ubuntu16:
+  extends:
+    - .deploy:shortsha
+    - .target-ubuntu16
+
+deploy:shortsha-ubuntu18:
+  extends:
+    - .deploy:shortsha
+    - .target-ubuntu18
+
+deploy:shortsha-ubi8:
+  extends:
+    - .deploy:shortsha
     - .target-ubi8
