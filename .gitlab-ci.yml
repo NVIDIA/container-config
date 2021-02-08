@@ -2,7 +2,6 @@ include:
   - local: '.common-ci.yml'
 
 stages:
-  - version
   - build
   - test
   - deploy
@@ -10,7 +9,6 @@ stages:
 
 # A base step for defining integration tests.
 .integration:
-  allow_failure: true
   stage: test
   variables:
     VERSION: "${CI_COMMIT_SHA}"
