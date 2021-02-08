@@ -70,15 +70,12 @@ build-ubi8:
     - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${OUT_IMAGE}:${VERSION#v}-${TARGET}"
     - make IMAGE=${OUT_IMAGE} VERSION=${VERSION#v} push-${TARGET}
 
-# .deploy:sha sets the internal deployment version to the git SHA
-.deploy:sha:
+# .deploy:sha sets the internal deployment version to the git SHA and deploys to the CI
+# container registry
+.deploy:sha-ci:
   extends: .deploy
   variables:
     VERSION: "${CI_COMMIT_SHA}"
-
-.deploy:ci:
-  extends: .deploy
-  variables:
     OUT_REGISTRY_USER: ${CI_REGISTRY_USER}
     OUT_REGISTRY_TOKEN: ${CI_REGISTRY_PASSWORD}
     OUT_REGISTRY: ${CI_REGISTRY}
@@ -86,21 +83,24 @@ build-ubi8:
 
 deploy:sha-ci-ubuntu16:
   extends:
-    - .deploy:ci
-    - .deploy:sha
+    - .deploy:sha-ci
     - .target-ubuntu16
+  dependencies:
+    - build-ubuntu16
 
 deploy:sha-ci-ubuntu18:
   extends:
-    - .deploy:ci
-    - .deploy:sha
+    - .deploy:sha-ci
     - .target-ubuntu18
+  dependencies:
+    - build-ubuntu18
 
 deploy:sha-ci-ubi8:
   extends:
-    - .deploy:ci
-    - .deploy:sha
+    - .deploy:sha-ci
     - .target-ubi8
+  dependencies:
+    - build-ubi8
 
 # A release job is a deployment job that has a different output version / image
 .release:
@@ -130,13 +130,19 @@ release:staging-ubuntu16:
   extends:
     - .release:staging
     - .target-ubuntu16
+  dependencies:
+    - deploy:sha-ci-ubuntu16
 
 release:staging-ubuntu18:
   extends:
     - .release:staging
     - .target-ubuntu18
+  dependencies:
+    - deploy:sha-ci-ubuntu16
 
 release:staging-ubi8:
   extends:
     - .release:staging
     - .target-ubi8
+  dependencies:
+    - deploy:sha-ci-ubi8

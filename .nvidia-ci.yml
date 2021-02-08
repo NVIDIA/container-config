@@ -111,29 +111,47 @@ release:ngc-ubuntu16:
   extends:
     - .release:ngc
     - .target-ubuntu16
+  dependencies:
+    - deploy:sha-ci-ubuntu16
+    - scan-ubuntu16
 
 release:ngc-ubuntu18:
   extends:
     - .release:ngc
     - .target-ubuntu18
+  dependencies:
+    - deploy:sha-ci-ubuntu18
+    - scan-ubuntu18
 
 release:ngc-ubi8:
   extends:
     - .release:ngc
     - .target-ubi8
+  dependencies:
+    - deploy:sha-ci-ubi8
+    - scan-ubi8
 
 release:dockerhub-ubuntu16:
   extends:
     - .release:ngc
     - .target-ubuntu16
+  dependencies:
+    - deploy:sha-ci-ubuntu16
+    - scan-ubuntu16
 
 release:dockerhub-ubuntu18:
   extends:
     - .release:ngc
     - .target-ubuntu18
+  dependencies:
+    - deploy:sha-ci-ubuntu18
+    - scan-ubuntu18
 
 release:dockerhub-ubi8:
   extends:
     - .release:ngc
     - .target-ubi8
+  dependencies:
+    - deploy:sha-ci-ubi8
+    - scan-ubi8
 
