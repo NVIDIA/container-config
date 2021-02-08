@@ -55,7 +55,10 @@ skipped_integration:
   variables:
     REGISTRY: "${CI_REGISTRY_IMAGE}"
     VERSION: "${CI_COMMIT_SHA}"
-    IMAGE: "${IMAGE_NAME}"
+    # Define both OUT_IMAGE and OUT_IMAGE_TAG to allow for these to be used when scanning the
+    # "local" (tagged) image
+    OUT_IMAGE_TAG: "${CI_COMMIT_SHA}-${TARGET}"
+    OUT_IMAGE: "${IMAGE_NAME}"
   except:
     variables:
     - $CI_COMMIT_MESSAGE =~ /\[skip[ _-]scans?\]/i
@@ -64,13 +67,13 @@ skipped_integration:
     - apk add --no-cache git
     - apk add --no-cache python3 python3-dev py3-pip py3-wheel libmagic
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE}:${VERSION}-${TARGET}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${OUT_IMAGE}:${OUT_IMAGE_TAG}"
     - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/sectooling/scanning/contamer.git
     - pip3 install -r contamer/requirements.txt
   script:
     - cd contamer
-    - python3 contamer.py -ls --fail-on-non-os ${CONTAMER_SUPPRESS_VULNS:+--suppress-vulns ${CONTAMER_SUPPRESS_VULNS}} -- "${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - python3 contamer.py -ls --fail-on-non-os ${CONTAMER_SUPPRESS_VULNS:+--suppress-vulns ${CONTAMER_SUPPRESS_VULNS}} -- "${OUT_IMAGE}:${OUT_IMAGE_TAG}"
 
 scan-ubuntu16:
   extends:
