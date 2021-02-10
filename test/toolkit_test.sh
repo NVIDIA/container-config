@@ -1,5 +1,5 @@
 #! /bin/bash
-# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,12 @@ testing::toolkit::main() {
 	local -r uid=$(id -u)
 	local -r gid=$(id -g)
 
+	local READLINK="readlink"
+	local -r platform=$(uname)
+	if [[ "${platform}" == "Darwin" ]]; then
+		READLINK="greadlink"
+	fi
+
 	testing::docker_run::toolkit::shell 'toolkit /usr/local/nvidia/toolkit'
 	docker run -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
 
@@ -24,7 +30,7 @@ testing::toolkit::main() {
 	test ! -z "$(ls -A "${shared_dir}/usr/local/nvidia/toolkit")"
 
 	test -L "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1"
-	test -e "$(readlink -f "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1")"
+	test -e "$(${READLINK} -f "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1")"
 
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-cli"
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-toolkit"
