@@ -331,6 +331,13 @@ func UpdateV1Config(config *toml.Tree) error {
 		"options",
 	}
 
+	defaultRuntimeNamePath := []string{
+		"plugins",
+		"cri",
+		"containerd",
+		"default_runtime_name",
+	}
+
 	switch runc := config.GetPath(runcPath).(type) {
 	case *toml.Tree:
 		runc, _ = toml.Load(runc.String())
@@ -351,6 +358,7 @@ func UpdateV1Config(config *toml.Tree) error {
 			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
 		}
 		config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
+		config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
 	}
 
 	return nil
@@ -379,7 +387,15 @@ func RevertV1Config(config *toml.Tree) error {
 		"options",
 	}
 
+	defaultRuntimeNamePath := []string{
+		"plugins",
+		"cri",
+		"containerd",
+		"default_runtime_name",
+	}
+
 	config.DeletePath(runtimeClassPath)
+	config.DeletePath(defaultRuntimeNamePath)
 	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
 		if RuntimeBinary == path.Base(runtime) {
 			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
@@ -464,6 +480,12 @@ func UpdateV2Config(config *toml.Tree) error {
 		runtimeClassFlag,
 		"options",
 	}
+	defaultRuntimeNamePath := []string{
+		"plugins",
+		"io.containerd.grpc.v1.cri",
+		"containerd",
+		"default_runtime_name",
+	}
 
 	switch runc := config.GetPath(runcPath).(type) {
 	case *toml.Tree:
@@ -479,6 +501,7 @@ func UpdateV2Config(config *toml.Tree) error {
 
 	if setAsDefaultFlag {
 		config.SetPath(append(containerdPath, "default_runtime_name"), runtimeClassFlag)
+		config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
 	}
 
 	return nil
@@ -498,8 +521,15 @@ func RevertV2Config(config *toml.Tree) error {
 		"runtimes",
 		runtimeClassFlag,
 	}
+	defaultRuntimeNamePath := []string{
+		"plugins",
+		"io.containerd.grpc.v1.cri",
+		"containerd",
+		"default_runtime_name",
+	}
 
 	config.DeletePath(runtimeClassPath)
+	config.DeletePath(defaultRuntimeNamePath)
 	if runtime, ok := config.GetPath(append(containerdPath, "default_runtime_name")).(string); ok {
 		if runtimeClassFlag == runtime {
 			config.DeletePath(append(containerdPath, "default_runtime_name"))
