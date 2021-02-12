@@ -37,6 +37,10 @@ testing::containerd::dind::exec() {
 testing::containerd::toolkit::run() {
 	local version=${1}
 
+	# We run ctr image list to ensure that containerd has successfully started in the docker-in-docker container
+	with_retry 3 5s testing::containerd::dind::exec " \
+		ctr --address=${containerd_dind_containerd_dir}/containerd.sock image list -q"
+
 	# Ensure that we can run some non GPU containers from within dind
 	with_retry 3 5s testing::containerd::dind::exec " \
 		ctr --address=${containerd_dind_containerd_dir}/containerd.sock image pull nvcr.io/nvidia/cuda:11.1-base; \
@@ -52,6 +56,10 @@ testing::containerd::toolkit::run() {
 		-e "RUNTIME_ARGS=--config=${containerd_dind_containerd_dir}/containerd.toml --socket=${containerd_dind_containerd_dir}/containerd.sock" \
 		--name "${containerd_test_ctr}" \
 		"${toolkit_container_image}" "/usr/local/nvidia" "--no-daemon"
+
+	# We run ctr image list to ensure that containerd has successfully started in the docker-in-docker container
+	with_retry 3 5s testing::containerd::dind::exec " \
+		ctr --address=${containerd_dind_containerd_dir}/containerd.sock image list -q"
 
 	# Ensure that we haven't broken non GPU containers
 	with_retry 3 5s testing::containerd::dind::exec " \
