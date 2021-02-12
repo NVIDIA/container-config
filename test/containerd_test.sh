@@ -71,6 +71,10 @@ testing::containerd::main() {
 	testing::containerd::dind::setup
 	testing::containerd::toolkit::run v1
 	testing::containerd::cleanup
+
+	testing::containerd::dind::setup
+	testing::containerd::toolkit::run v2
+	testing::containerd::cleanup
 }
 
 testing::containerd::cleanup() {
