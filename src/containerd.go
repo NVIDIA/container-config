@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/blang/semver"
+	"github.com/containerd/containerd"
 	toml "github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
@@ -136,7 +140,7 @@ func Setup(c *cli.Context) error {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
 
-	err = UpdateConfig(config, version)
+	err = UpdateConfig(c.Context, config, version)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
@@ -175,7 +179,7 @@ func Cleanup(c *cli.Context) error {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
 
-	err = RevertConfig(config, version)
+	err = RevertConfig(c.Context, config, version)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
@@ -235,26 +239,52 @@ func LoadConfig() (*toml.Tree, error) {
 }
 
 // ParseVersion parses the version field out of the containerd config
-func ParseVersion(config *toml.Tree) (int, error) {
-	var version int
+func ParseVersion(config *toml.Tree) (*int, error) {
+	var version *int
 
 	switch v := config.Get("version").(type) {
+	case nil:
+		log.Info("version not present in config")
+		return nil, nil
 	case int64:
-		version = int(v)
+		*version = int(v)
 	default:
-		version = 1
+		*version = 1
 	}
-	log.Infof("Config version: %v", version)
+	log.Infof("Config version: %v", *version)
 
 	return version, nil
 }
 
 // UpdateConfig updates the containerd config to include the nvidia-container-runtime
-func UpdateConfig(config *toml.Tree, version int) error {
+func UpdateConfig(ctx context.Context, config *toml.Tree, version *int) error {
 	var err error
+	var configVersionToUpdate int
+
+	// use containerd version to determine v1 or v2 if version is not present in config
+	if version == nil {
+		containerdVersion, err := getContainerdVersion(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to get containerd version: %v", err)
+		}
+
+		containerdVersionParsed, err := semver.Parse(containerdVersion)
+		if err != nil {
+			return fmt.Errorf("unable to parse containrd version: %v", containerdVersion)
+		}
+
+		if containerdVersionParsed.LT(semver.Version{Major: 1, Minor: 3}) {
+			configVersionToUpdate = 1
+		} else {
+			configVersionToUpdate = 2
+		}
+	} else {
+		configVersionToUpdate = *version
+	}
 
 	log.Infof("Updating config")
-	switch version {
+
+	switch configVersionToUpdate {
 	case 1:
 		err = UpdateV1Config(config)
 	case 2:
@@ -271,11 +301,33 @@ func UpdateConfig(config *toml.Tree, version int) error {
 }
 
 // RevertConfig reverts the containerd config to remove the nvidia-container-runtime
-func RevertConfig(config *toml.Tree, version int) error {
+func RevertConfig(ctx context.Context, config *toml.Tree, version *int) error {
 	var err error
+	var configVersionToRevert int
+
+	// use containerd version to determine v1 or v2 if version is not present in config
+	if version == nil {
+		containerdVersion, err := getContainerdVersion(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to get containerd version: %v", err)
+		}
+
+		containerdVersionParsed, err := semver.Parse(containerdVersion)
+		if err != nil {
+			return fmt.Errorf("unable to parse containrd version: %v", containerdVersion)
+		}
+
+		if containerdVersionParsed.LT(semver.Version{Major: 1, Minor: 3}) {
+			configVersionToRevert = 1
+		} else {
+			configVersionToRevert = 2
+		}
+	} else {
+		configVersionToRevert = *version
+	}
 
 	log.Infof("Reverting config")
-	switch version {
+	switch configVersionToRevert {
 	case 1:
 		err = RevertV1Config(config)
 	case 2:
@@ -293,6 +345,8 @@ func RevertConfig(config *toml.Tree, version int) error {
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
 func UpdateV1Config(config *toml.Tree) error {
+	log.Info("Updating V1 config")
+
 	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
 
 	runcPath := []string{
@@ -358,6 +412,8 @@ func UpdateV1Config(config *toml.Tree) error {
 
 // RevertV1Config performs a revert specific to v1 of the containerd config
 func RevertV1Config(config *toml.Tree) error {
+	log.Info("Reverting V1 config")
+
 	runtimeClassPath := []string{
 		"plugins",
 		"cri",
@@ -435,6 +491,8 @@ func RevertV1Config(config *toml.Tree) error {
 
 // UpdateV2Config performs an update specific to v2 of the containerd config
 func UpdateV2Config(config *toml.Tree) error {
+	log.Info("Updating V2 config")
+
 	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
 
 	containerdPath := []string{
@@ -486,6 +544,8 @@ func UpdateV2Config(config *toml.Tree) error {
 
 // RevertV2Config performs a revert specific to v2 of the containerd config
 func RevertV2Config(config *toml.Tree) error {
+	log.Info("Reverting V2 config")
+
 	containerdPath := []string{
 		"plugins",
 		"io.containerd.grpc.v1.cri",
@@ -633,4 +693,23 @@ func SignalContainerd() error {
 	log.Infof("Successfully signaled containerd")
 
 	return nil
+}
+
+// getContainerdVersion returns the version of containerd running
+func getContainerdVersion(ctx context.Context) (string, error) {
+	client, err := containerd.New(socketFlag)
+	if err != nil {
+		return "", err
+	}
+
+	defer client.Close()
+
+	version, err := client.Version(ctx)
+	if err != nil {
+		return "", nil
+	}
+
+	log.Infof("containerd version is %s", version.Version)
+
+	return strings.TrimPrefix(version.Version, "v"), nil
 }
