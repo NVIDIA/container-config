@@ -16,12 +16,13 @@
 package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
+	hooks "github.com/containers/podman/v2/pkg/hooks/1.0.0"
+	rspec "github.com/opencontainers/runtime-spec/specs-go"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
 )
@@ -151,38 +152,35 @@ func createHook(toolkitDir string, hookPath string) error {
 	}
 	defer hook.Close()
 
-	hookTemplatePath, err := getHookTemplatePath()
+	encoder := json.NewEncoder(hook)
+	err = encoder.Encode(generateOciHook(tooklitDirArg))
 	if err != nil {
-		return fmt.Errorf("error getting hook template path: %v", err)
-	}
-	hookTemplate, err := os.Open(hookTemplatePath)
-	if err != nil {
-		return fmt.Errorf("error opening hook template '%v': %v", hookTemplatePath, err)
-	}
-	defer hookTemplate.Close()
-
-	scanner := bufio.NewScanner(hookTemplate)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// sed -i "s#@DESTINATION@#${destination}#"
-		line = strings.ReplaceAll(line, "@DESTINATION@", toolkitDir)
-		_, err := hook.WriteString(line)
-		if err != nil {
-			return fmt.Errorf("error writing to hook file: %v", err)
-		}
+		return fmt.Errorf("error writing hook file '%v': %v", hookPath, err)
 	}
 	return nil
 }
 
-func getHookTemplatePath() (string, error) {
-	ex, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("error determining path of '%v' executable: %v", CRIOCommandName, err)
-	}
-	baseDir := filepath.Dir(ex)
-	return filepath.Join(baseDir, DefaultHookFilename), nil
-}
-
 func getHookPath(hooksDir string, hookFilename string) string {
 	return filepath.Join(hooksDir, hookFilename)
+}
+
+func generateOciHook(toolkitDir string) hooks.Hook {
+	hookPath := filepath.Join(toolkitDir, "nvidia-container-toolkit")
+	envPath := "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:" + toolkitDir
+	always := true
+
+	hook := hooks.Hook{
+		Version: "1.0.0",
+		Stages:  []string{"prestart"},
+		Hook: rspec.Hook{
+			Path: hookPath,
+			Args: []string{"nvidia-container-toolkit", "prestart"},
+			Env:  []string{envPath},
+		},
+		When: hooks.When{
+			Always:   &always,
+			Commands: []string{".*"},
+		},
+	}
+	return hook
 }
