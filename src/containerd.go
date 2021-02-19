@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -9,9 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/containerd/containerd"
 	toml "github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -131,12 +134,17 @@ func Setup(c *cli.Context) error {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	version, err := ParseVersion(config)
+	containerdVersion, err := GetContainerdVersion(c.Context)
+	if err != nil {
+		return fmt.Errorf("unable to get containerd version", err)
+	}
+
+	version, err := ParseVersion(config, containerdVersion)
 	if err != nil {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
 
-	err = UpdateConfig(config, version)
+	err = UpdateConfig(config, version, containerdVersion)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
@@ -170,7 +178,12 @@ func Cleanup(c *cli.Context) error {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	version, err := ParseVersion(config)
+	containerdVersion, err := GetContainerdVersion(c.Context)
+	if err != nil {
+		return fmt.Errorf("unable to get containerd version", err)
+	}
+
+	version, err := ParseVersion(config, containerdVersion)
 	if err != nil {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
@@ -235,14 +248,28 @@ func LoadConfig() (*toml.Tree, error) {
 }
 
 // ParseVersion parses the version field out of the containerd config
-func ParseVersion(config *toml.Tree) (int, error) {
-	var version int
+func ParseVersion(config *toml.Tree, containerdVersion string) (int, error) {
+	var defaultVersion int
+	switch semver.Compare(containerdVersion, "v1.3") {
+	case -1:
+		defaultVersion = 1
+	default:
+		defaultVersion = 2
+	}
 
+	var version int
 	switch v := config.Get("version").(type) {
+	case nil:
+		switch len(config.Keys()) {
+		case 0: // No config exists, or the config file is empty, use version inferred from containerd
+			version = defaultVersion
+		default: // A config file exists, has content, and no version is set
+			version = 1
+		}
 	case int64:
 		version = int(v)
 	default:
-		version = 1
+		return -1, fmt.Errorf("unsupported type for version field: %v", v)
 	}
 	log.Infof("Config version: %v", version)
 
@@ -250,13 +277,13 @@ func ParseVersion(config *toml.Tree) (int, error) {
 }
 
 // UpdateConfig updates the containerd config to include the nvidia-container-runtime
-func UpdateConfig(config *toml.Tree, version int) error {
+func UpdateConfig(config *toml.Tree, version int, containerdVersion string) error {
 	var err error
 
 	log.Infof("Updating config")
 	switch version {
 	case 1:
-		err = UpdateV1Config(config)
+		err = UpdateV1Config(config, containerdVersion)
 	case 2:
 		err = UpdateV2Config(config)
 	default:
@@ -292,7 +319,7 @@ func RevertConfig(config *toml.Tree, version int) error {
 }
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
-func UpdateV1Config(config *toml.Tree) error {
+func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
 	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
 
 	runcPath := []string{
@@ -330,6 +357,12 @@ func UpdateV1Config(config *toml.Tree) error {
 		"default_runtime",
 		"options",
 	}
+	defaultRuntimeNamePath := []string{
+		"plugins",
+		"cri",
+		"containerd",
+		"default_runtime_name",
+	}
 
 	switch runc := config.GetPath(runcPath).(type) {
 	case *toml.Tree:
@@ -351,6 +384,9 @@ func UpdateV1Config(config *toml.Tree) error {
 			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
 		}
 		config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
+		if semver.Compare(containerdVersion, "1.3") >= 0 {
+			config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
+		}
 	}
 
 	return nil
@@ -378,11 +414,23 @@ func RevertV1Config(config *toml.Tree) error {
 		"default_runtime",
 		"options",
 	}
+	defaultRuntimeNamePath := []string{
+		"plugins",
+		"cri",
+		"containerd",
+		"default_runtime_name",
+	}
 
 	config.DeletePath(runtimeClassPath)
 	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
 		if RuntimeBinary == path.Base(runtime) {
 			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
+		}
+	}
+
+	if defaultRuntimeName, ok := config.GetPath(defaultRuntimeNamePath).(string); ok {
+		if RuntimeBinary == defaultRuntimeName {
+			config.DeletePath(defaultRuntimeNamePath)
 		}
 	}
 
@@ -633,4 +681,22 @@ func SignalContainerd() error {
 	log.Infof("Successfully signaled containerd")
 
 	return nil
+}
+
+// GetContainerdVersion returns the version of containerd running
+func GetContainerdVersion(ctx context.Context) (string, error) {
+	client, err := containerd.New(socketFlag)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+
+	version, err := client.Version(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	log.Infof("Containerd version is %s", version.Version)
+
+	return version.Version, nil
 }
