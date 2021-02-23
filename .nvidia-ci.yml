@@ -93,18 +93,18 @@ scan-ubi8:
 .release:ngc:
   extends: .release:external
   variables:
-    OUT_REGISTRY_USER: ${NGC_REGISTRY_USER}
-    OUT_REGISTRY_TOKEN: ${NGC_REGISTRY_TOKEN}
-    OUT_REGISTRY: ${NGC_REGISTRY}
-    OUT_IMAGE: ${NGC_REGISTRY_IMAGE}
+    OUT_REGISTRY_USER: "${NGC_REGISTRY_USER}"
+    OUT_REGISTRY_TOKEN: "${NGC_REGISTRY_TOKEN}"
+    OUT_REGISTRY: "${NGC_REGISTRY}"
+    OUT_IMAGE: "${NGC_REGISTRY_IMAGE}"
 
 .release:dockerhub:
   extends: .release:external
   variables:
-    OUT_REGISTRY_USER: ${REGISTRY_USER}
-    OUT_REGISTRY_TOKEN: ${REGISTRY_TOKEN}
-    OUT_REGISTRY: ${DOCKERHUB_REGISTRY}
-    OUT_IMAGE: ${REGISTRY_IMAGE}
+    OUT_REGISTRY_USER: "${REGISTRY_USER}"
+    OUT_REGISTRY_TOKEN: "${REGISTRY_TOKEN}"
+    OUT_REGISTRY: "${DOCKERHUB_REGISTRY}"
+    OUT_IMAGE: "${REGISTRY_IMAGE}"
 
 release:ngc-ubuntu16:
   extends:
@@ -132,7 +132,7 @@ release:ngc-ubi8:
 
 release:dockerhub-ubuntu16:
   extends:
-    - .release:ngc
+    - .release:dockerhub
     - .target-ubuntu16
   dependencies:
     - deploy:sha-ci-ubuntu16
@@ -140,7 +140,7 @@ release:dockerhub-ubuntu16:
 
 release:dockerhub-ubuntu18:
   extends:
-    - .release:ngc
+    - .release:dockerhub
     - .target-ubuntu18
   dependencies:
     - deploy:sha-ci-ubuntu18
@@ -148,7 +148,7 @@ release:dockerhub-ubuntu18:
 
 release:dockerhub-ubi8:
   extends:
-    - .release:ngc
+    - .release:dockerhub
     - .target-ubi8
   dependencies:
     - deploy:sha-ci-ubi8

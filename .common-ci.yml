@@ -62,10 +62,12 @@ build-ubi8:
     # Note: a leading 'v' is stripped from the version if present
     - 'echo Version: ${VERSION#v} ; [[ -n "${VERSION#v}" ]] || exit 1'
     - apk add --no-cache make bash
+    - 'echo "Logging in to CI registry ${CI_REGISTRY} as ${CI_REGISTRY_USER}"'
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}"
   script:
     # Log in to the "output" registry, tag the image and push the image
+    - 'echo "Logging in to output registry ${OUT_REGISTRY} as ${OUT_REGISTRY_USER}"'
     - docker login -u "${OUT_REGISTRY_USER}" -p "${OUT_REGISTRY_TOKEN}" "${OUT_REGISTRY}"
     - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${OUT_IMAGE}:${VERSION#v}-${TARGET}"
     - make IMAGE=${OUT_IMAGE} VERSION=${VERSION#v} push-${TARGET}
@@ -76,10 +78,10 @@ build-ubi8:
   extends: .deploy
   variables:
     VERSION: "${CI_COMMIT_SHA}"
-    OUT_REGISTRY_USER: ${CI_REGISTRY_USER}
-    OUT_REGISTRY_TOKEN: ${CI_REGISTRY_PASSWORD}
-    OUT_REGISTRY: ${CI_REGISTRY}
-    OUT_IMAGE: ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}
+    OUT_REGISTRY_USER: "${CI_REGISTRY_USER}"
+    OUT_REGISTRY_TOKEN: "${CI_REGISTRY_PASSWORD}"
+    OUT_REGISTRY: "${CI_REGISTRY}"
+    OUT_IMAGE: "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}"
 
 deploy:sha-ci-ubuntu16:
   extends:
@@ -116,10 +118,10 @@ deploy:sha-ci-ubi8:
 .release:staging:
   extends: .release
   variables:
-    OUT_REGISTRY_USER: ${CI_REGISTRY_USER}
-    OUT_REGISTRY_TOKEN: ${CI_REGISTRY_PASSWORD}
-    OUT_REGISTRY: ${CI_REGISTRY}
-    OUT_IMAGE: ${CI_REGISTRY_IMAGE}/staging/${IMAGE_NAME}
+    OUT_REGISTRY_USER: "${CI_REGISTRY_USER}"
+    OUT_REGISTRY_TOKEN: "${CI_REGISTRY_PASSWORD}"
+    OUT_REGISTRY: "${CI_REGISTRY}"
+    OUT_IMAGE: "${CI_REGISTRY_IMAGE}/staging/${IMAGE_NAME}"
 
 .release:external:
   extends: .release
