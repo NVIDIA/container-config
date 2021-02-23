@@ -132,7 +132,7 @@ release:ngc-ubi8:
 
 release:dockerhub-ubuntu16:
   extends:
-    - .release:ngc
+    - .release:dockerhub
     - .target-ubuntu16
   dependencies:
     - deploy:sha-ci-ubuntu16
@@ -140,7 +140,7 @@ release:dockerhub-ubuntu16:
 
 release:dockerhub-ubuntu18:
   extends:
-    - .release:ngc
+    - .release:dockerhub
     - .target-ubuntu18
   dependencies:
     - deploy:sha-ci-ubuntu18
@@ -148,7 +148,7 @@ release:dockerhub-ubuntu18:
 
 release:dockerhub-ubi8:
   extends:
-    - .release:ngc
+    - .release:dockerhub
     - .target-ubi8
   dependencies:
     - deploy:sha-ci-ubi8
