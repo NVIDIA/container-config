@@ -32,7 +32,6 @@ RUN go build -o nvidia-toolkit run.go
 RUN go build -o containerd containerd.go
 RUN go build -o crio crio.go
 RUN go build -o docker docker.go
-RUN go build -o toolkit toolkit.go
 RUN rm -rf go.* && \
     rm -rf *.go && \
     rm -rf vendor
@@ -68,6 +67,7 @@ WORKDIR /work
 
 COPY --from=build /work /work
 
+RUN ln -s /work/toolkit.sh toolkit
 
 ENV PATH=/work:$PATH
 

@@ -219,7 +219,7 @@ func InstallToolkit() error {
 
 	log.Infof("Installing toolkit")
 
-	cmdline := fmt.Sprintf("%v install %v %v\n", ToolkitCommand, toolkitArgsFlag, toolkitDir)
+	cmdline := fmt.Sprintf("%v %v %v\n", ToolkitCommand, toolkitDir, toolkitArgsFlag)
 	cmd := exec.Command("sh", "-c", cmdline)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
