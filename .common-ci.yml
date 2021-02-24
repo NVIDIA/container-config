@@ -110,8 +110,8 @@ deploy:sha-ci-ubi8:
   extends: .deploy
   stage: release
   variables:
-    # We use the CI_COMMIT_REF_SLUG as the release version as this covers tags and non-tags (for staging releases)
-    VERSION: "${CI_COMMIT_REF_SLUG}"
+    # We use the CI_COMMIT_SHORT_SHA and override this for external releases
+    VERSION: "${CI_COMMIT_SHORT_SHA}"
 
 # Define a staging release step that pushes an image to an internal "stagin" repository
 # This is triggered for all pipelines (i.e. not only tags) to test the pipeline steps
@@ -126,6 +126,8 @@ deploy:sha-ci-ubi8:
 
 .release:external:
   extends: .release
+  variables:
+    VERSION: "${CI_COMMIT_TAG}"
   only:
     - tags
 
