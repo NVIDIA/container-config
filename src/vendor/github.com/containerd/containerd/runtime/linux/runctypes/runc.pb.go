@@ -978,7 +978,10 @@ func (m *RuncOptions) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthRunc
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRunc
 			}
 			if (iNdEx + skippy) > l {
@@ -1347,7 +1350,10 @@ func (m *CreateOptions) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthRunc
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRunc
 			}
 			if (iNdEx + skippy) > l {
@@ -1626,7 +1632,10 @@ func (m *CheckpointOptions) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthRunc
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRunc
 			}
 			if (iNdEx + skippy) > l {
@@ -1709,7 +1718,10 @@ func (m *ProcessDetails) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthRunc
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthRunc
 			}
 			if (iNdEx + skippy) > l {

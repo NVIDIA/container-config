@@ -1063,7 +1063,7 @@ func (m *ApplyRequest) Unmarshal(dAtA []byte) error {
 					if err != nil {
 						return err
 					}
-					if (skippy < 0) || (iNdEx+skippy) < 0 {
+					if skippy < 0 {
 						return ErrInvalidLengthDiff
 					}
 					if (iNdEx + skippy) > postIndex {
@@ -1080,7 +1080,10 @@ func (m *ApplyRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthDiff
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDiff
 			}
 			if (iNdEx + skippy) > l {
@@ -1167,7 +1170,10 @@ func (m *ApplyResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthDiff
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDiff
 			}
 			if (iNdEx + skippy) > l {
@@ -1460,7 +1466,7 @@ func (m *DiffRequest) Unmarshal(dAtA []byte) error {
 					if err != nil {
 						return err
 					}
-					if (skippy < 0) || (iNdEx+skippy) < 0 {
+					if skippy < 0 {
 						return ErrInvalidLengthDiff
 					}
 					if (iNdEx + skippy) > postIndex {
@@ -1477,7 +1483,10 @@ func (m *DiffRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthDiff
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDiff
 			}
 			if (iNdEx + skippy) > l {
@@ -1564,7 +1573,10 @@ func (m *DiffResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthDiff
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDiff
 			}
 			if (iNdEx + skippy) > l {

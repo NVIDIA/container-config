@@ -1098,7 +1098,7 @@ func (m *Plugin) Unmarshal(dAtA []byte) error {
 					if err != nil {
 						return err
 					}
-					if (skippy < 0) || (iNdEx+skippy) < 0 {
+					if skippy < 0 {
 						return ErrInvalidLengthIntrospection
 					}
 					if (iNdEx + skippy) > postIndex {
@@ -1183,7 +1183,10 @@ func (m *Plugin) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthIntrospection
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthIntrospection
 			}
 			if (iNdEx + skippy) > l {
@@ -1266,7 +1269,10 @@ func (m *PluginsRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthIntrospection
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthIntrospection
 			}
 			if (iNdEx + skippy) > l {
@@ -1351,7 +1357,10 @@ func (m *PluginsResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthIntrospection
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthIntrospection
 			}
 			if (iNdEx + skippy) > l {
@@ -1434,7 +1443,10 @@ func (m *ServerResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthIntrospection
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthIntrospection
 			}
 			if (iNdEx + skippy) > l {
