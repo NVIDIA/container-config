@@ -1609,7 +1609,7 @@ func (m *Namespace) Unmarshal(dAtA []byte) error {
 					if err != nil {
 						return err
 					}
-					if (skippy < 0) || (iNdEx+skippy) < 0 {
+					if skippy < 0 {
 						return ErrInvalidLengthNamespace
 					}
 					if (iNdEx + skippy) > postIndex {
@@ -1626,7 +1626,10 @@ func (m *Namespace) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -1709,7 +1712,10 @@ func (m *GetNamespaceRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -1793,7 +1799,10 @@ func (m *GetNamespaceResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -1876,7 +1885,10 @@ func (m *ListNamespacesRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -1961,7 +1973,10 @@ func (m *ListNamespacesResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -2045,7 +2060,10 @@ func (m *CreateNamespaceRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -2129,7 +2147,10 @@ func (m *CreateNamespaceResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -2249,7 +2270,10 @@ func (m *UpdateNamespaceRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -2333,7 +2357,10 @@ func (m *UpdateNamespaceResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {
@@ -2416,7 +2443,10 @@ func (m *DeleteNamespaceRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthNamespace
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthNamespace
 			}
 			if (iNdEx + skippy) > l {

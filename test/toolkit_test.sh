@@ -1,5 +1,5 @@
 #! /bin/bash
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-testing::toolkit::install() {
+testing::toolkit::main() {
 	local -r uid=$(id -u)
 	local -r gid=$(id -g)
 
-	local READLINK="readlink"
-	local -r platform=$(uname)
-	if [[ "${platform}" == "Darwin" ]]; then
-		READLINK="greadlink"
-	fi
-
-	testing::docker_run::toolkit::shell 'toolkit install /usr/local/nvidia/toolkit'
+	testing::docker_run::toolkit::shell 'toolkit /usr/local/nvidia/toolkit'
 	docker run -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
 
 	# Ensure toolkit dir is correctly setup
 	test ! -z "$(ls -A "${shared_dir}/usr/local/nvidia/toolkit")"
 
 	test -L "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1"
-	test -e "$(${READLINK} -f "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1")"
+	test -e "$(readlink -f "${shared_dir}/usr/local/nvidia/toolkit/libnvidia-container.so.1")"
 
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-cli"
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-toolkit"
@@ -41,27 +35,6 @@ testing::toolkit::install() {
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-runtime.real"
 
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
-
-	# Ensure that the config file has the required contents.
-	# NOTE: This assumes that RUN_DIR is '/run/nvidia'
-	local -r nvidia_run_dir="/run/nvidia"
-	grep -q -E "^ldconfig = \"@${nvidia_run_dir}/driver/sbin/ldconfig.real\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
-	grep -q -E "^root = \"${nvidia_run_dir}/driver\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
-
-}
-
-testing::toolkit::delete() {
-	testing::docker_run::toolkit::shell 'mkdir -p /usr/local/nvidia/delete-toolkit'
-	testing::docker_run::toolkit::shell 'touch /usr/local/nvidia/delete-toolkit/test.file'
-	testing::docker_run::toolkit::shell 'toolkit delete /usr/local/nvidia/delete-toolkit'
-
-	test ! -z "$(ls -A "${shared_dir}/usr/local/nvidia")"
-	test ! -e "${shared_dir}/usr/local/nvidia/delete-toolkit"
-}
-
-testing::toolkit::main() {
-	testing::toolkit::install
-	testing::toolkit::delete
 }
 
 testing::toolkit::cleanup() {

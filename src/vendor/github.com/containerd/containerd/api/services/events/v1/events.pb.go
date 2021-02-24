@@ -916,7 +916,10 @@ func (m *PublishRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEvents
 			}
 			if (iNdEx + skippy) > l {
@@ -1003,7 +1006,10 @@ func (m *ForwardRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEvents
 			}
 			if (iNdEx + skippy) > l {
@@ -1086,7 +1092,10 @@ func (m *SubscribeRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEvents
 			}
 			if (iNdEx + skippy) > l {
@@ -1270,7 +1279,10 @@ func (m *Envelope) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthEvents
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEvents
 			}
 			if (iNdEx + skippy) > l {

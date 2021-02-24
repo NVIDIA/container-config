@@ -85,27 +85,10 @@ func WithImageName(n string) NewContainerOpts {
 	}
 }
 
-// WithContainerLabels sets the provided labels to the container.
-// The existing labels are cleared.
-// Use WithAdditionalContainerLabels to preserve the existing labels.
+// WithContainerLabels adds the provided labels to the container
 func WithContainerLabels(labels map[string]string) NewContainerOpts {
 	return func(_ context.Context, _ *Client, c *containers.Container) error {
 		c.Labels = labels
-		return nil
-	}
-}
-
-// WithAdditionalContainerLabels adds the provided labels to the container
-// The existing labels are preserved as long as they do not conflict with the added labels.
-func WithAdditionalContainerLabels(labels map[string]string) NewContainerOpts {
-	return func(_ context.Context, _ *Client, c *containers.Container) error {
-		if c.Labels == nil {
-			c.Labels = labels
-			return nil
-		}
-		for k, v := range labels {
-			c.Labels[k] = v
-		}
 		return nil
 	}
 }
