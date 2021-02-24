@@ -24,11 +24,20 @@ testing::setup() {
 }
 
 testing::cleanup() {
+	if [[ "${CLEANUP}" == "false" ]]; then
+		echo "Skipping cleanup: CLEANUP=${CLEANUP}"
+		return 0
+	fi
 	if [[ -e "${shared_dir}" ]]; then
 		docker run --rm \
 			-v "${shared_dir}:/work" \
 			alpine sh -c 'rm -rf /work/*'
 		rmdir "${shared_dir}"
+	fi
+
+	if [[ "${test_cases:-""}" == "" ]]; then
+		echo "No test cases defined. Skipping test case cleanup"
+		return 0
 	fi
 
 	for tc in ${test_cases}; do

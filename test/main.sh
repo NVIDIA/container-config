@@ -25,7 +25,7 @@ source "${basedir}/docker_test.sh"
 source "${basedir}/crio_test.sh"
 source "${basedir}/containerd_test.sh"
 
-CLEANUP=true
+: ${CLEANUP:=true}
 
 usage() {
 	cat >&2 <<EOF
@@ -67,7 +67,7 @@ done
 
 trap '"$CLEANUP" && testing::cleanup' ERR
 
-readonly test_cases="toolkit docker crio containerd"
+readonly test_cases="${TEST_CASES:-toolkit docker crio containerd}"
 
 testing::cleanup
 for tc in ${test_cases}; do
