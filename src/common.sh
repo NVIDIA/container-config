@@ -72,25 +72,3 @@ with_retry() {
 
 	return 1
 }
-
-ensure::mounted() {
-	local -r directory="$1"
-
-	if ! mount | grep -q "${directory}"; then
-		log ERROR "Directory ${directory} isn't mounted in container"
-		log ERROR "Ensure that you have correctly mounted the following path '${directoy}'"
-		exit 1
-	fi
-}
-
-ensure::oneof() {
-	local -r val=$(cat -)
-	for match in "$@"; do
-		if [[ "${val}" == "${match}" ]]; then
-			return 0
-		fi
-	done
-
-	log ERROR "Value '${val}' doesn't match any of $@"
-	exit 1
-}
