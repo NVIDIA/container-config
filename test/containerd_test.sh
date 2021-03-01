@@ -38,7 +38,7 @@ testing::containerd::toolkit::run() {
 	local version=${1}
 
 	# We run ctr image list to ensure that containerd has successfully started in the docker-in-docker container
-	with_retry 3 5s testing::containerd::dind::exec " \
+	with_retry 5 5s testing::containerd::dind::exec " \
 		ctr --address=${containerd_dind_containerd_dir}/containerd.sock image list -q"
 
 	# Ensure that we can run some non GPU containers from within dind
@@ -58,7 +58,7 @@ testing::containerd::toolkit::run() {
 		"${toolkit_container_image}" "/usr/local/nvidia" "--no-daemon"
 
 	# We run ctr image list to ensure that containerd has successfully started in the docker-in-docker container
-	with_retry 3 5s testing::containerd::dind::exec " \
+	with_retry 5 5s testing::containerd::dind::exec " \
 		ctr --address=${containerd_dind_containerd_dir}/containerd.sock image list -q"
 
 	# Ensure that we haven't broken non GPU containers
@@ -68,6 +68,10 @@ testing::containerd::toolkit::run() {
 }
 
 testing::containerd::main() {
+	testing::containerd::dind::setup
+	testing::containerd::toolkit::run empty
+	testing::containerd::cleanup
+
 	testing::containerd::dind::setup
 	testing::containerd::toolkit::run v1
 	testing::containerd::cleanup
