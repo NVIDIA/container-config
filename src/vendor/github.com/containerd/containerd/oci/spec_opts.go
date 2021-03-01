@@ -536,7 +536,7 @@ func WithUser(userstr string) SpecOpts {
 			}
 			f := func(root string) error {
 				if username != "" {
-					user, err := UserFromPath(root, func(u user.User) bool {
+					user, err := getUserFromPath(root, func(u user.User) bool {
 						return u.Name == username
 					})
 					if err != nil {
@@ -545,7 +545,7 @@ func WithUser(userstr string) SpecOpts {
 					uid = uint32(user.Uid)
 				}
 				if groupname != "" {
-					gid, err = GIDFromPath(root, func(g user.Group) bool {
+					gid, err = getGIDFromPath(root, func(g user.Group) bool {
 						return g.Name == groupname
 					})
 					if err != nil {
@@ -600,11 +600,11 @@ func WithUserID(uid uint32) SpecOpts {
 			if !isRootfsAbs(s.Root.Path) {
 				return errors.Errorf("rootfs absolute path is required")
 			}
-			user, err := UserFromPath(s.Root.Path, func(u user.User) bool {
+			user, err := getUserFromPath(s.Root.Path, func(u user.User) bool {
 				return u.Uid == int(uid)
 			})
 			if err != nil {
-				if os.IsNotExist(err) || err == ErrNoUsersFound {
+				if os.IsNotExist(err) || err == errNoUsersFound {
 					s.Process.User.UID, s.Process.User.GID = uid, 0
 					return nil
 				}
@@ -626,11 +626,11 @@ func WithUserID(uid uint32) SpecOpts {
 			return err
 		}
 		return mount.WithTempMount(ctx, mounts, func(root string) error {
-			user, err := UserFromPath(root, func(u user.User) bool {
+			user, err := getUserFromPath(root, func(u user.User) bool {
 				return u.Uid == int(uid)
 			})
 			if err != nil {
-				if os.IsNotExist(err) || err == ErrNoUsersFound {
+				if os.IsNotExist(err) || err == errNoUsersFound {
 					s.Process.User.UID, s.Process.User.GID = uid, 0
 					return nil
 				}
@@ -654,7 +654,7 @@ func WithUsername(username string) SpecOpts {
 				if !isRootfsAbs(s.Root.Path) {
 					return errors.Errorf("rootfs absolute path is required")
 				}
-				user, err := UserFromPath(s.Root.Path, func(u user.User) bool {
+				user, err := getUserFromPath(s.Root.Path, func(u user.User) bool {
 					return u.Name == username
 				})
 				if err != nil {
@@ -675,7 +675,7 @@ func WithUsername(username string) SpecOpts {
 				return err
 			}
 			return mount.WithTempMount(ctx, mounts, func(root string) error {
-				user, err := UserFromPath(root, func(u user.User) bool {
+				user, err := getUserFromPath(root, func(u user.User) bool {
 					return u.Name == username
 				})
 				if err != nil {
@@ -707,11 +707,11 @@ func WithAdditionalGIDs(userstr string) SpecOpts {
 			var username string
 			uid, err := strconv.Atoi(userstr)
 			if err == nil {
-				user, err := UserFromPath(root, func(u user.User) bool {
+				user, err := getUserFromPath(root, func(u user.User) bool {
 					return u.Uid == uid
 				})
 				if err != nil {
-					if os.IsNotExist(err) || err == ErrNoUsersFound {
+					if os.IsNotExist(err) || err == errNoUsersFound {
 						return nil
 					}
 					return err
@@ -869,12 +869,9 @@ func WithAmbientCapabilities(caps []string) SpecOpts {
 	}
 }
 
-// ErrNoUsersFound can be returned from UserFromPath
-var ErrNoUsersFound = errors.New("no users found")
+var errNoUsersFound = errors.New("no users found")
 
-// UserFromPath inspects the user object using /etc/passwd in the specified rootfs.
-// filter can be nil.
-func UserFromPath(root string, filter func(user.User) bool) (user.User, error) {
+func getUserFromPath(root string, filter func(user.User) bool) (user.User, error) {
 	ppath, err := fs.RootPath(root, "/etc/passwd")
 	if err != nil {
 		return user.User{}, err
@@ -884,17 +881,14 @@ func UserFromPath(root string, filter func(user.User) bool) (user.User, error) {
 		return user.User{}, err
 	}
 	if len(users) == 0 {
-		return user.User{}, ErrNoUsersFound
+		return user.User{}, errNoUsersFound
 	}
 	return users[0], nil
 }
 
-// ErrNoGroupsFound can be returned from GIDFromPath
-var ErrNoGroupsFound = errors.New("no groups found")
+var errNoGroupsFound = errors.New("no groups found")
 
-// GIDFromPath inspects the GID using /etc/passwd in the specified rootfs.
-// filter can be nil.
-func GIDFromPath(root string, filter func(user.Group) bool) (gid uint32, err error) {
+func getGIDFromPath(root string, filter func(user.Group) bool) (gid uint32, err error) {
 	gpath, err := fs.RootPath(root, "/etc/group")
 	if err != nil {
 		return 0, err
@@ -904,7 +898,7 @@ func GIDFromPath(root string, filter func(user.Group) bool) (gid uint32, err err
 		return 0, err
 	}
 	if len(groups) == 0 {
-		return 0, ErrNoGroupsFound
+		return 0, errNoGroupsFound
 	}
 	g := groups[0]
 	return uint32(g.Gid), nil

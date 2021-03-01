@@ -65,8 +65,6 @@ WHALE = "🇩"
 ONI = "👹"
 
 RELEASE=containerd-$(VERSION:v%=%).${GOOS}-${GOARCH}
-CRIRELEASE=cri-containerd-$(VERSION:v%=%)-${GOOS}-${GOARCH}
-CRICNIRELEASE=cri-containerd-cni-$(VERSION:v%=%)-${GOOS}-${GOARCH}
 
 PKG=github.com/containerd/containerd
 
@@ -77,14 +75,15 @@ MANPAGES=ctr.8 containerd.8 containerd-config.8 containerd-config.toml.5
 ifdef BUILDTAGS
     GO_BUILDTAGS = ${BUILDTAGS}
 endif
-GO_BUILDTAGS ?=
+# Build tags apparmor and selinux are needed by CRI plugin.
+GO_BUILDTAGS ?= apparmor selinux
 GO_BUILDTAGS += ${DEBUG_TAGS}
 GO_TAGS=$(if $(GO_BUILDTAGS),-tags "$(GO_BUILDTAGS)",)
 GO_LDFLAGS=-ldflags '-X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) -X $(PKG)/version.Package=$(PACKAGE) $(EXTRA_LDFLAGS)'
 SHIM_GO_LDFLAGS=-ldflags '-X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) -X $(PKG)/version.Package=$(PACKAGE) -extldflags "-static" $(EXTRA_LDFLAGS)'
 
 # Project packages.
-PACKAGES=$(shell go list ${GO_TAGS} ./... | grep -v /vendor/ | grep -v /integration)
+PACKAGES=$(shell go list ${GO_TAGS} ./... | grep -v /vendor/)
 INTEGRATION_PACKAGE=${PKG}
 TEST_REQUIRES_ROOT_PACKAGES=$(filter \
     ${PACKAGES}, \
@@ -121,10 +120,7 @@ BINARIES=$(addprefix bin/,$(COMMANDS))
 TESTFLAGS ?= $(TESTFLAGS_RACE) $(EXTRA_TESTFLAGS)
 TESTFLAGS_PARALLEL ?= 8
 
-OUTPUTDIR = $(join $(ROOTDIR), _output)
-CRIDIR=$(OUTPUTDIR)/cri
-
-.PHONY: clean all AUTHORS build binaries test integration generate protos checkprotos coverage ci check help install uninstall vendor release mandir install-man genman install-cri-deps cri-release cri-cni-release cri-integration bin/cri-integration.test
+.PHONY: clean all AUTHORS build binaries test integration generate protos checkprotos coverage ci check help install uninstall vendor release mandir install-man genman
 .DEFAULT: default
 
 all: binaries
@@ -181,16 +177,6 @@ integration: ## run integration tests
 	@echo "$(WHALE) $@"
 	@go test ${TESTFLAGS} -test.root -parallel ${TESTFLAGS_PARALLEL}
 
-# TODO integrate cri integration bucket with coverage
-bin/cri-integration.test:
-	@echo "$(WHALE) $@"
-	@go test -c ./integration -o bin/cri-integration.test
-
-cri-integration: binaries bin/cri-integration.test ## run cri integration tests
-	@echo "$(WHALE) $@"
-	@./script/test/cri-integration.sh
-	@rm -rf bin/cri-integration.test
-
 benchmark: ## run benchmarks tests
 	@echo "$(WHALE) $@"
 	@go test ${TESTFLAGS} -bench . -run Benchmark -test.root
@@ -227,7 +213,7 @@ man: mandir $(addprefix man/,$(MANPAGES))
 mandir:
 	@mkdir -p man
 
-# Kept for backwards compatibility
+# Kept for backwards compatability
 genman: man/containerd.8 man/ctr.8
 
 man/containerd.8: FORCE
@@ -259,66 +245,17 @@ releases/$(RELEASE).tar.gz: $(BINARIES)
 	@tar -czf releases/$(RELEASE).tar.gz -C releases/$(RELEASE) bin
 	@rm -rf releases/$(RELEASE)
 
-release: releases/$(RELEASE).tar.gz
+release: $(BINARIES) releases/$(RELEASE).tar.gz
 	@echo "$(WHALE) $@"
 	@cd releases && sha256sum $(RELEASE).tar.gz >$(RELEASE).tar.gz.sha256sum
 
-ifeq ($(GOOS),windows)
-install-cri-deps: $(BINARIES)
-	mkdir -p $(CRIDIR)
-	DESTDIR=$(CRIDIR) script/setup/install-cni-windows
-	cp bin/* $(CRIDIR)
-else
-install-cri-deps: $(BINARIES)
-	@rm -rf ${CRIDIR}
-	@install -d ${CRIDIR}/usr/local/bin
-	@install -D -m 755 bin/* ${CRIDIR}/usr/local/bin
-	@install -d ${CRIDIR}/opt/containerd/cluster
-	@cp -r contrib/gce ${CRIDIR}/opt/containerd/cluster/
-	@install -d ${CRIDIR}/etc/systemd/system
-	@install -m 644 containerd.service ${CRIDIR}/etc/systemd/system
-	echo "CONTAINERD_VERSION: '$(VERSION:v%=%)'" | tee ${CRIDIR}/opt/containerd/cluster/version
-
-	DESTDIR=$(CRIDIR) script/setup/install-runc
-	DESTDIR=$(CRIDIR) script/setup/install-cni
-	DESTDIR=$(CRIDIR) script/setup/install-critools
-
-	@install -d $(CRIDIR)/bin
-	@install $(BINARIES) $(CRIDIR)/bin
-endif
-
-ifeq ($(GOOS),windows)
-releases/$(CRIRELEASE).tar.gz: install-cri-deps
+cri-release: $(BINARIES) releases/$(RELEASE).tar.gz
 	@echo "$(WHALE) $@"
-	@cd $(CRIDIR) && tar -czf ../../releases/$(CRIRELEASE).tar.gz *
-
-releases/$(CRICNIRELEASE).tar.gz: install-cri-deps
-	@echo "$(WHALE) $@"
-	@cd $(CRIDIR) && tar -czf ../../releases/$(CRICNIRELEASE).tar.gz *
-else
-releases/$(CRIRELEASE).tar.gz: install-cri-deps
-	@echo "$(WHALE) $@"
-	@tar -czf releases/$(CRIRELEASE).tar.gz -C $(CRIDIR) etc/crictl.yaml etc/systemd usr opt/containerd
-
-releases/$(CRICNIRELEASE).tar.gz: install-cri-deps
-	@echo "$(WHALE) $@"
-	@tar -czf releases/$(CRICNIRELEASE).tar.gz -C $(CRIDIR) etc usr opt
-endif
-
-cri-release: releases/$(CRIRELEASE).tar.gz
-	@echo "$(WHALE) $@"
-	@cd releases && sha256sum $(CRIRELEASE).tar.gz >$(CRIRELEASE).tar.gz.sha256sum && ln -sf $(CRIRELEASE).tar.gz cri-containerd.tar.gz
-
-cri-cni-release: releases/$(CRICNIRELEASE).tar.gz
-	@echo "$(WHALE) $@"
-	@cd releases && sha256sum $(CRICNIRELEASE).tar.gz >$(CRICNIRELEASE).tar.gz.sha256sum && ln -sf $(CRICNIRELEASE).tar.gz cri-cni-containerd.tar.gz
+	@VERSION=$(VERSION:v%=%) script/release/release-cri
 
 clean: ## clean up binaries
 	@echo "$(WHALE) $@"
 	@rm -f $(BINARIES)
-	@rm -f releases/*.tar.gz*
-	@rm -rf $(OUTPUTDIR)
-	@rm -rf bin/cri-integration.test
 
 clean-test: ## clean up debris from previously failed tests
 	@echo "$(WHALE) $@"
@@ -333,7 +270,6 @@ clean-test: ## clean up debris from previously failed tests
 	@rm -rf /run/containerd/runc/*
 	@rm -rf /run/containerd/fifo/*
 	@rm -rf /run/containerd-test/*
-	@rm -rf bin/cri-integration.test
 
 install: ## install binaries
 	@echo "$(WHALE) $@ $(BINARIES)"
@@ -376,8 +312,7 @@ root-coverage: ## generate coverage profiles for unit tests that require root
 
 vendor:
 	@echo "$(WHALE) $@"
-	@go mod tidy
-	@go mod vendor
+	@vndr
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
