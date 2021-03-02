@@ -219,7 +219,7 @@ func InstallToolkit() error {
 
 	log.Infof("Installing toolkit")
 
-	cmdline := fmt.Sprintf("%v %v %v\n", ToolkitCommand, toolkitDir, toolkitArgsFlag)
+	cmdline := fmt.Sprintf("%v install %v %v\n", ToolkitCommand, toolkitArgsFlag, toolkitDir)
 	cmd := exec.Command("sh", "-c", cmdline)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -236,13 +236,7 @@ func SetupRuntime() error {
 
 	log.Infof("Setting up runtime")
 
-	var cmdline string
-	switch runtimeFlag {
-	case "crio":
-		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, toolkitDir, runtimeArgsFlag)
-	default:
-		cmdline = fmt.Sprintf("%v setup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
-	}
+	cmdline := fmt.Sprintf("%v setup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
 
 	cmd := exec.Command("sh", "-c", cmdline)
 	cmd.Stdout = os.Stdout
@@ -267,13 +261,7 @@ func CleanupRuntime() error {
 
 	log.Infof("Cleaning up Runtime")
 
-	var cmdline string
-	switch runtimeFlag {
-	case "crio":
-		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, toolkitDir, runtimeArgsFlag)
-	default:
-		cmdline = fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
-	}
+	cmdline := fmt.Sprintf("%v cleanup %v %v\n", runtimeFlag, runtimeArgsFlag, toolkitDir)
 
 	cmd := exec.Command("sh", "-c", cmdline)
 	cmd.Stdout = os.Stdout

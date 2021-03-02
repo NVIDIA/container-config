@@ -13,31 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-testing::crio::bad_input() {
-	if testing::docker_run::toolkit::shell 'crio setup /run/\#nvidia/ --no-check'; then
-		log ERROR "Expected an error when DESTINATION contains a '#'"
-		exit 1
-	fi
-}
-
 testing::crio::hook_created() {
-	testing::docker_run::toolkit::shell 'crio setup /run/nvidia/ --no-check'
+	testing::docker_run::toolkit::shell 'crio setup /run/nvidia/toolkit'
 
 	test ! -z "$(ls -A "${shared_dir}${CRIO_HOOKS_DIR}")"
 
 	cat "${shared_dir}${CRIO_HOOKS_DIR}/${CRIO_HOOK_FILENAME}" | \
-		jq -r '.hook.path' | grep -q "/run/nvidia"
+		jq -r '.hook.path' | grep -q "/run/nvidia/toolkit/"
+	test $? -eq 0
+	cat "${shared_dir}${CRIO_HOOKS_DIR}/${CRIO_HOOK_FILENAME}" | \
+		jq -r '.hook.env[0]' | grep -q ":/run/nvidia/toolkit"
 	test $? -eq 0
 }
 
 testing::crio::hook_cleanup() {
-	testing::docker_run::toolkit::shell 'crio cleanup --no-check'
+	testing::docker_run::toolkit::shell 'crio cleanup'
 
 	test -z "$(ls -A "${shared_dir}${CRIO_HOOKS_DIR}")"
 }
 
 testing::crio::main() {
-	testing::crio::bad_input
 	testing::crio::hook_created
 	testing::crio::hook_cleanup
 }
