@@ -76,3 +76,15 @@ clean-%:
 
 $(TEST_TARGETS): test-%:
 	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared-$(*) $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
+
+.PHONY: bump-commit
+BUMP_COMMIT := Bump to version v$(VERSION)
+bump-commit:
+	@git log | if [ ! -z "$$(grep -o '$(BUMP_COMMIT)' | sort -u)" ]; then \
+		echo "\nERROR: '$(BUMP_COMMIT)' already committed\n"; \
+		exit 1; \
+	fi
+	@git add Makefile
+	@git commit -m "$(BUMP_COMMIT)"
+	@echo "Applied the diff:"
+	@git --no-pager diff HEAD~1
