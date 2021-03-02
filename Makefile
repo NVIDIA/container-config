@@ -25,7 +25,7 @@ IMAGE := $(REGISTRY)/container-toolkit
 endif
 
 # Must be set externally before invoking
-VERSION ?= 1.4.5
+VERSION ?= 1.4.6
 
 # Fix the versions for the toolkit components
 LIBNVIDIA_CONTAINER_VERSION=1.3.3
@@ -76,3 +76,15 @@ clean-%:
 
 $(TEST_TARGETS): test-%:
 	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared-$(*) $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
+
+.PHONY: bump-commit
+BUMP_COMMIT := Bump to version v$(VERSION)
+bump-commit:
+	@git log | if [ ! -z "$$(grep -o '$(BUMP_COMMIT)' | sort -u)" ]; then \
+		echo "\nERROR: '$(BUMP_COMMIT)' already committed\n"; \
+		exit 1; \
+	fi
+	@git add Makefile
+	@git commit -m "$(BUMP_COMMIT)"
+	@echo "Applied the diff:"
+	@git --no-pager diff HEAD~1
