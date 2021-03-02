@@ -30,7 +30,6 @@ import (
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/remotes"
-	remoteserrors "github.com/containerd/containerd/remotes/errors"
 	digest "github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
@@ -45,7 +44,7 @@ type dockerPusher struct {
 }
 
 func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (content.Writer, error) {
-	ctx, err := ContextWithRepositoryScope(ctx, p.refspec, true)
+	ctx, err := contextWithRepositoryScope(ctx, p.refspec, true)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +112,8 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 				return nil, errors.Wrapf(errdefs.ErrAlreadyExists, "content %v on remote", desc.Digest)
 			}
 		} else if resp.StatusCode != http.StatusNotFound {
-			err := remoteserrors.NewUnexpectedStatusErr(resp)
-			log.G(ctx).WithField("resp", resp).WithField("body", string(err.(remoteserrors.ErrUnexpectedStatus).Body)).Debug("unexpected response")
-			return nil, err
+			// TODO: log error
+			return nil, errors.Errorf("unexpected response: %s", resp.Status)
 		}
 	}
 
@@ -130,7 +128,7 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 		var resp *http.Response
 		if fromRepo := selectRepositoryMountCandidate(p.refspec, desc.Annotations); fromRepo != "" {
 			preq := requestWithMountFrom(req, desc.Digest.String(), fromRepo)
-			pctx := ContextWithAppendPullRepositoryScope(ctx, fromRepo)
+			pctx := contextWithAppendPullRepositoryScope(ctx, fromRepo)
 
 			// NOTE: the fromRepo might be private repo and
 			// auth service still can grant token without error.
@@ -138,7 +136,7 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 			//
 			// for the private repo, we should remove mount-from
 			// query and send the request again.
-			resp, err = preq.doWithRetries(pctx, nil)
+			resp, err = preq.do(pctx)
 			if err != nil {
 				return nil, err
 			}
@@ -168,9 +166,8 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 			})
 			return nil, errors.Wrapf(errdefs.ErrAlreadyExists, "content %v on remote", desc.Digest)
 		default:
-			err := remoteserrors.NewUnexpectedStatusErr(resp)
-			log.G(ctx).WithField("resp", resp).WithField("body", string(err.(remoteserrors.ErrUnexpectedStatus).Body)).Debug("unexpected response")
-			return nil, err
+			// TODO: log error
+			return nil, errors.Errorf("unexpected response: %s", resp.Status)
 		}
 
 		var (
@@ -222,7 +219,7 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 	// TODO: Support chunked upload
 
 	pr, pw := io.Pipe()
-	respC := make(chan response, 1)
+	respC := make(chan *http.Response, 1)
 	body := ioutil.NopCloser(pr)
 
 	req.body = func() (io.ReadCloser, error) {
@@ -238,9 +235,8 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 
 	go func() {
 		defer close(respC)
-		resp, err := req.doWithRetries(ctx, nil)
+		resp, err := req.do(ctx)
 		if err != nil {
-			respC <- response{err: err}
 			pr.CloseWithError(err)
 			return
 		}
@@ -248,11 +244,10 @@ func (p dockerPusher) Push(ctx context.Context, desc ocispec.Descriptor) (conten
 		switch resp.StatusCode {
 		case http.StatusOK, http.StatusCreated, http.StatusNoContent:
 		default:
-			err := remoteserrors.NewUnexpectedStatusErr(resp)
-			log.G(ctx).WithField("resp", resp).WithField("body", string(err.(remoteserrors.ErrUnexpectedStatus).Body)).Debug("unexpected response")
-			pr.CloseWithError(err)
+			// TODO: log error
+			pr.CloseWithError(errors.Errorf("unexpected response: %s", resp.Status))
 		}
-		respC <- response{Response: resp}
+		respC <- resp
 	}()
 
 	return &pushWriter{
@@ -285,17 +280,12 @@ func getManifestPath(object string, dgst digest.Digest) []string {
 	return []string{"manifests", object}
 }
 
-type response struct {
-	*http.Response
-	err error
-}
-
 type pushWriter struct {
 	base *dockerBase
 	ref  string
 
 	pipe       *io.PipeWriter
-	responseC  <-chan response
+	responseC  <-chan *http.Response
 	isManifest bool
 
 	expected digest.Digest
@@ -345,8 +335,8 @@ func (pw *pushWriter) Commit(ctx context.Context, size int64, expected digest.Di
 
 	// TODO: timeout waiting for response
 	resp := <-pw.responseC
-	if resp.err != nil {
-		return resp.err
+	if resp == nil {
+		return errors.New("no response")
 	}
 
 	// 201 is specified return status, some registries return

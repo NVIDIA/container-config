@@ -322,6 +322,10 @@ func RevertConfig(config *toml.Tree, version int) error {
 func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
 	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
 
+	// We ensure that the version is set to 1. This handles the case where the config was empty and
+	// the config version was determined from the containerd version.
+	config.Set("version", "1")
+
 	runcPath := []string{
 		"plugins",
 		"cri",
@@ -484,6 +488,10 @@ func RevertV1Config(config *toml.Tree) error {
 // UpdateV2Config performs an update specific to v2 of the containerd config
 func UpdateV2Config(config *toml.Tree) error {
 	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
+
+	// We ensure that the version is set to 2. This handles the case where the config was empty and
+	// the config version was determined from the containerd version.
+	config.Set("version", "2")
 
 	containerdPath := []string{
 		"plugins",

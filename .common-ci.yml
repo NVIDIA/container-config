@@ -113,7 +113,7 @@ deploy:sha-ci-ubi8:
     # We use the CI_COMMIT_SHORT_SHA and override this for external releases
     VERSION: "${CI_COMMIT_SHORT_SHA}"
 
-# Define a staging release step that pushes an image to an internal "staging" repository
+# Define a staging release step that pushes an image to an internal "stagin" repository
 # This is triggered for all pipelines (i.e. not only tags) to test the pipeline steps
 # outside of the release process.
 .release:staging:
