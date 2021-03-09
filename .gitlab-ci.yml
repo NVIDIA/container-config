@@ -25,6 +25,34 @@ stages:
   script:
     - make test-${TARGET}
 
+.test:toolkit:
+  extends:
+    - .integration
+  variables:
+    TEST_CASES: "toolkit"
+
+.test:docker:
+  extends:
+    - .integration
+  variables:
+    TEST_CASES: "docker"
+
+.test:containerd:
+  # TODO: The containerd tests fail due to issues with SIGHUP.
+  # Until this is resolved with retry up to twice and allow failure here.
+  retry: 2
+  allow_failure: true
+  extends:
+    - .integration
+  variables:
+    TEST_CASES: "containerd"
+
+.test:crio:
+  extends:
+    - .integration
+  variables:
+    TEST_CASES: "crio"
+
 integration-ubuntu16:
   extends:
     - .integration
@@ -32,9 +60,24 @@ integration-ubuntu16:
   variables:
     SKIP_TESTS: "true"
 
-integration-ubuntu18:
+integration:toolkit-ubuntu18:
   extends:
-    - .integration
+    - .test:toolkit
+    - .target-ubuntu18
+
+integration:docker-ubuntu18:
+  extends:
+    - .test:docker
+    - .target-ubuntu18
+
+integration:containerd-ubuntu18:
+  extends:
+    - .test:containerd
+    - .target-ubuntu18
+
+integration:crio-ubuntu18:
+  extends:
+    - .test:crio
     - .target-ubuntu18
 
 integration-ubi8:
