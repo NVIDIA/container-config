@@ -324,7 +324,7 @@ func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
 
 	// We ensure that the version is set to 1. This handles the case where the config was empty and
 	// the config version was determined from the containerd version.
-	config.Set("version", "1")
+	config.Set("version", int64(1))
 
 	runcPath := []string{
 		"plugins",
@@ -491,7 +491,7 @@ func UpdateV2Config(config *toml.Tree) error {
 
 	// We ensure that the version is set to 2. This handles the case where the config was empty and
 	// the config version was determined from the containerd version.
-	config.Set("version", "2")
+	config.Set("version", int64(2))
 
 	containerdPath := []string{
 		"plugins",
