@@ -433,7 +433,7 @@ func RevertV1Config(config *toml.Tree) error {
 	}
 
 	if defaultRuntimeName, ok := config.GetPath(defaultRuntimeNamePath).(string); ok {
-		if RuntimeBinary == defaultRuntimeName {
+		if runtimeClassFlag == defaultRuntimeName {
 			config.DeletePath(defaultRuntimeNamePath)
 		}
 	}
