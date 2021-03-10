@@ -106,17 +106,8 @@ toolkit::setup::runtime_binary() {
 	cat <<- EOF | tr -s ' \t' > ${destination}/nvidia-container-runtime
 		#! /bin/sh
 
-		assert_module_loaded() {
-			local module="\${1}"
-			cat /proc/modules | grep -e "^\${module} "
-			if [ "\${?}" -eq "0" ]; then
-				return 0
-			fi
-			return 1
-		}
-
-		assert_module_loaded nvidia
-		if [ "\${?}" -ne "0" ]; then
+		cat /proc/modules | grep -e "^nvidia "
+		if [ "\${?}" != "0" ]; then
 			echo "nvidia driver modules are not yet loaded, invoking runc directly"
 			exec runc "\$@"
 		fi
