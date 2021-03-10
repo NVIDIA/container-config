@@ -105,6 +105,13 @@ toolkit::setup::runtime_binary() {
 
 	cat <<- EOF | tr -s ' \t' > ${destination}/nvidia-container-runtime
 		#! /bin/sh
+
+		cat /proc/modules | grep -e "^nvidia "
+		if [ "\${?}" != "0" ]; then
+			echo "nvidia driver modules are not yet loaded, invoking runc directly"
+			exec runc "\$@"
+		fi
+
 		PATH="${destination}:\$PATH" \
 		XDG_CONFIG_HOME="${destination}/.config" \
 		${destination}/nvidia-container-runtime.real \
