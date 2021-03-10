@@ -22,10 +22,11 @@ const (
 	RuntimeTypeV2 = "io.containerd.runc.v1"
 	RuntimeBinary = "nvidia-container-runtime"
 
-	DefaultConfig       = "/etc/containerd/config.toml"
-	DefaultSocket       = "/run/containerd/containerd.sock"
-	DefaultRuntimeClass = "nvidia"
-	DefaultSetAsDefault = true
+	DefaultConfig             = "/etc/containerd/config.toml"
+	DefaultSocket             = "/run/containerd/containerd.sock"
+	DefaultRuntimeClass       = "nvidia"
+	DefaultSetAsDefault       = true
+	DefaultNoSignalContainerd = false
 
 	ReloadBackoff     = 5 * time.Second
 	MaxReloadAttempts = 6
@@ -38,6 +39,7 @@ var configFlag string
 var socketFlag string
 var runtimeClassFlag string
 var setAsDefaultFlag bool
+var noSignalContainerd bool
 
 func main() {
 	// Create the top-level CLI
@@ -107,6 +109,13 @@ func main() {
 			Value:       DefaultSetAsDefault,
 			Destination: &setAsDefaultFlag,
 			EnvVars:     []string{"CONTAINERD_SET_AS_DEFAULT"},
+		},
+		&cli.BoolFlag{
+			Name:        "no-signal-containerd",
+			Usage:       "Do not signal containerd to reload the configuration",
+			Value:       DefaultNoSignalContainerd,
+			Destination: &noSignalContainerd,
+			Hidden:      true,
 		},
 	}
 
@@ -614,6 +623,10 @@ func FlushConfig(config *toml.Tree) error {
 // SignalContainerd sends a SIGHUP signal to the containerd daemon
 func SignalContainerd() error {
 	log.Infof("Sending SIGHUP signal to containerd")
+	if noSignalContainerd {
+		log.Warnf("Skipping sending signal to containerd due to --no-signal-containerd")
+		return nil
+	}
 
 	// Wrap the logic to perform the SIGHUP in a function so we can retry it on failure
 	retriable := func() error {
