@@ -74,8 +74,9 @@ $(BUILD_TARGETS): build-%:
 clean-%:
 	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared-$(*)
 
+TEST_CASES ?= toolkit docker crio containerd
 $(TEST_TARGETS): test-%:
-	bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared-$(*) $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
+	TEST_CASES="$(TEST_CASES)" bash -x $(CURDIR)/test/main.sh run $(CURDIR)/shared-$(*) $(IMAGE):$(VERSION)-$(*) --no-cleanup-on-error
 
 .PHONY: bump-commit
 BUMP_COMMIT := Bump to version v$(VERSION)
