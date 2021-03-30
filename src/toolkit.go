@@ -245,10 +245,19 @@ func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string) erro
 func installContainerRuntime(toolkitDir string) (string, error) {
 	log.Infof("Installing NVIDIA container runtime from '%v'", nvidiaContainerRuntimeSource)
 
+	preLines := []string{
+		"",
+		"cat /proc/modules | grep -e \"^nvidia \"",
+		"if [ \"${?}\" != \"0\" ]; then",
+		"	echo \"nvidia driver modules are not yet loaded, invoking runc directly\"",
+		"	exec runc \"$@\"",
+		"fi",
+		"",
+	}
 	env := map[string]string{
 		"XDG_CONFIG_HOME": filepath.Join(toolkitDir, ".config"),
 	}
-	installedPath, err := installExecutable(toolkitDir, nvidiaContainerRuntimeSource, env, nil)
+	installedPath, err := installExecutable(toolkitDir, nvidiaContainerRuntimeSource, env, preLines, nil)
 	if err != nil {
 		return "", fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
@@ -263,7 +272,7 @@ func installContainerCLI(toolkitDir string) (string, error) {
 	env := map[string]string{
 		"LD_LIBRARY_PATH": toolkitDir,
 	}
-	installedPath, err := installExecutable(toolkitDir, nvidiaContainerCliSource, env, nil)
+	installedPath, err := installExecutable(toolkitDir, nvidiaContainerCliSource, env, nil, nil)
 	if err != nil {
 		return "", fmt.Errorf("error installing NVIDIA container CLI: %v", err)
 	}
@@ -279,7 +288,7 @@ func installRuntimeHook(toolkitDir string, configFilePath string) (string, error
 	argLines := []string{
 		fmt.Sprintf("-config \"%s\"", configFilePath),
 	}
-	installedPath, err := installExecutable(toolkitDir, nvidiaContainerRuntimeHookSource, env, argLines)
+	installedPath, err := installExecutable(toolkitDir, nvidiaContainerRuntimeHookSource, env, nil, argLines)
 	if err != nil {
 		return "", fmt.Errorf("error installing NVIDIA container runtime hook: %v", err)
 	}
@@ -294,7 +303,7 @@ func installRuntimeHook(toolkitDir string, configFilePath string) (string, error
 
 // installExecutable installs an executable component of the NVIDIA container toolkit. The source executable
 // is copied to a `.real` file and a wapper is created to set up the environment as required.
-func installExecutable(toolkitDir string, sourceExecutable string, env map[string]string, argLines []string) (string, error) {
+func installExecutable(toolkitDir string, sourceExecutable string, env map[string]string, preLines []string, argLines []string) (string, error) {
 	log.Infof("Installing executable '%v'", sourceExecutable)
 
 	dotRealFilename, err := installDotRealFile(toolkitDir, sourceExecutable)
@@ -303,7 +312,7 @@ func installExecutable(toolkitDir string, sourceExecutable string, env map[strin
 	}
 	log.Infof("Created '%v'", dotRealFilename)
 
-	wrapperFilename, err := wrapExecutable(toolkitDir, sourceExecutable, dotRealFilename, env, argLines)
+	wrapperFilename, err := wrapExecutable(toolkitDir, sourceExecutable, dotRealFilename, env, preLines, argLines)
 	if err != nil {
 		return "", fmt.Errorf("error wrapping '%v': %v", dotRealFilename, err)
 	}
@@ -317,7 +326,7 @@ func installDotRealFile(destFolder string, sourceExecutable string) (string, err
 	return installFileToFolderWithName(destFolder, executableDotReal, sourceExecutable)
 }
 
-func wrapExecutable(destFolder, executable string, dotRealFilename string, env map[string]string, argLines []string) (string, error) {
+func wrapExecutable(destFolder, executable string, dotRealFilename string, env map[string]string, preLines []string, argLines []string) (string, error) {
 	wrapperPath := getInstalledPath(destFolder, executable)
 	wrapper, err := os.Create(wrapperPath)
 	if err != nil {
@@ -327,6 +336,11 @@ func wrapExecutable(destFolder, executable string, dotRealFilename string, env m
 
 	// Add the shebang
 	fmt.Fprintln(wrapper, "#! /bin/sh")
+
+	// Add the preceding lines if any
+	for _, line := range preLines {
+		fmt.Fprintf(wrapper, "%s\n", line)
+	}
 
 	// Update the path to include the destination folder
 	path, specified := env["PATH"]
