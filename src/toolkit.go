@@ -77,7 +77,7 @@ func main() {
 			Name:        "nvidia-driver-root",
 			Value:       DefaultNvidiaDriverRoot,
 			Destination: &nvidiaDriverRootFlag,
-			EnvVars:     []string{"TOOLKIT_NVIDIA_DRIVER_ROOT"},
+			EnvVars:     []string{"NVIDIA_DRIVER_ROOT"},
 		},
 	}
 
