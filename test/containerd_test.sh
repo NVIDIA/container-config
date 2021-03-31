@@ -67,7 +67,67 @@ testing::containerd::toolkit::run() {
 		ctr --address=${containerd_dind_containerd_dir}/containerd.sock run --rm --runtime=io.containerd.runtime.v1.linux nvcr.io/nvidia/cuda:11.1-base cuda echo foo"
 }
 
+# This test runs containerd setup and containerd cleanup in succession to ensure that the
+# config is restored correctly.
+testing::containerd::toolkit::test_config() {
+	local version=${1}
+
+	# We run ctr image list to ensure that containerd has successfully started in the docker-in-docker container
+	with_retry 5 5s testing::containerd::dind::exec " \
+		ctr --address=${containerd_dind_containerd_dir}/containerd.sock image list -q"
+
+	local input_config="${shared_dir}/etc/containerd/config_${version}.toml"
+	local output_config="${shared_dir}/output/config_${version}.toml"
+	local output_dir=$(dirname ${output_config})
+
+	mkdir -p ${output_dir}
+	cp -p "${input_config}" "${output_config}"
+
+	docker run --rm --privileged \
+		--volumes-from "${containerd_dind_ctr}" \
+		-v "${output_dir}:${output_dir}" \
+		--name "${containerd_test_ctr}" \
+		--entrypoint sh \
+		"${toolkit_container_image}" -c "containerd setup \
+			--config=${output_config} \
+			--socket=${containerd_dind_containerd_dir}/containerd.sock \
+			--no-signal-containerd \
+				/usr/local/nvidia/toolkit"
+
+	# As a basic test we check that the config has changed
+	diff "${input_config}" "${output_config}" || test ${?} -ne 0
+	grep -q -E "^version = \d" "${output_config}"
+	grep -q -E "default_runtime_name = \"nvidia\"" "${output_config}"
+
+	docker run --rm --privileged \
+		--volumes-from "${containerd_dind_ctr}" \
+		-v "${output_dir}:${output_dir}" \
+		--name "${containerd_test_ctr}" \
+		--entrypoint sh \
+		"${toolkit_container_image}" -c "containerd cleanup \
+					--config=${output_config} \
+			--socket=${containerd_dind_containerd_dir}/containerd.sock \
+			--no-signal-containerd \
+				/usr/local/nvidia/toolkit"
+
+	if [[ -s "${input_config}" ]]; then
+		# Compare the input and output config. These should be the same.
+		diff "${input_config}" "${output_config}" || true
+	else
+		# If the input config is empty, the output should not exist.
+		test ! -e "${output_config}"
+	fi
+}
+
 testing::containerd::main() {
+	testing::containerd::dind::setup
+
+	testing::containerd::toolkit::test_config empty
+	testing::containerd::toolkit::test_config v1
+	testing::containerd::toolkit::test_config v2
+
+	testing::containerd::cleanup
+
 	testing::containerd::dind::setup
 	testing::containerd::toolkit::run empty
 	testing::containerd::cleanup
