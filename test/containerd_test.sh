@@ -94,6 +94,11 @@ testing::containerd::toolkit::test_config() {
 			--no-signal-containerd \
 				/usr/local/nvidia/toolkit"
 
+	# As a basic test we check that the config has changed
+	diff "${input_config}" "${output_config}" || test ${?} -ne 0
+	grep -q -E "^version = \d" "${output_config}"
+	grep -q -E "default_runtime_name = \"nvidia\"" "${output_config}"
+
 	docker run --rm --privileged \
 		--volumes-from "${containerd_dind_ctr}" \
 		-v "${output_dir}:${output_dir}" \
