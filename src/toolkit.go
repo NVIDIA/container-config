@@ -17,13 +17,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	toml "github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
@@ -143,7 +143,7 @@ func Install(cli *cli.Context) error {
 		return fmt.Errorf("error installing up NVIDIA container runtime: %v", err)
 	}
 
-	_, err = installContainerCLI(toolkitDirArg)
+	nvidiaContainerCliExecutable, err := installContainerCLI(toolkitDirArg)
 	if err != nil {
 		return fmt.Errorf("error installing up NVIDIA container CLI: %v", err)
 	}
@@ -153,7 +153,7 @@ func Install(cli *cli.Context) error {
 		return fmt.Errorf("error installing up NVIDIA container runtime hook: %v", err)
 	}
 
-	err = installToolkitConfig(toolkitConfigPath, nvidiaDriverRootFlag)
+	err = installToolkitConfig(toolkitConfigPath, nvidiaDriverRootFlag, nvidiaContainerCliExecutable)
 	if err != nil {
 		return fmt.Errorf("error installing NVIDIA container toolkit config: %v", err)
 	}
@@ -205,14 +205,13 @@ func installContainerLibrary(toolkitDir string) error {
 
 // installToolkitConfig installs the config file for the NVIDIA container toolkit ensuring
 // that the settings are updated to match the desired install and nvidia driver directories.
-func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string) error {
+func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string, nvidiaContainerCliExecutablePath string) error {
 	log.Infof("Installing NVIDIA container toolkit config '%v'", toolkitConfigPath)
 
-	sourceConfig, err := os.Open(nvidiaContainerToolkitConfigSource)
+	config, err := toml.LoadFile(nvidiaContainerToolkitConfigSource)
 	if err != nil {
 		return fmt.Errorf("could not open source config file: %v", err)
 	}
-	defer sourceConfig.Close()
 
 	targetConfig, err := os.Create(toolkitConfigPath)
 	if err != nil {
@@ -220,22 +219,24 @@ func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string) erro
 	}
 	defer targetConfig.Close()
 
-	driverLdconfigPath := "@" + filepath.Join(nvidiaDriverDir, "sbin/ldconfig.real")
-	scanner := bufio.NewScanner(sourceConfig)
-	for scanner.Scan() {
-		line := scanner.Text()
+	nvidiaContainerCliKey := func(p string) []string {
+		return []string{"nvidia-container-cli", p}
+	}
 
-		// sed -i 's/^#root/root/;' "${config_path}"
-		if strings.HasPrefix(line, "#root = ") {
-			line = strings.TrimPrefix(line, "#")
-		}
-		// sed -i "s@/run/nvidia/driver@${RUN_DIR}/driver@;" "${config_path}"
-		line = strings.ReplaceAll(line, "/run/nvidia/driver", nvidiaDriverDir)
+	// Read the ldconfig path from the config as this may differ per platform
+	// On ubuntu-based systems this ends in `.real`
+	ldconfigPath := fmt.Sprintf("%s", config.GetPath(nvidiaContainerCliKey("ldconfig")))
 
-		// sed -i "s;@/sbin/ldconfig.real;@${RUN_DIR}/driver/sbin/ldconfig.real;" "${config_path}"
-		line = strings.ReplaceAll(line, "@/sbin/ldconfig.real", driverLdconfigPath)
+	// Use the driver run root as the root:
+	driverLdconfigPath := "@" + filepath.Join(nvidiaDriverDir, strings.TrimPrefix(ldconfigPath, "@/"))
 
-		fmt.Fprintln(targetConfig, line)
+	config.SetPath(nvidiaContainerCliKey("root"), nvidiaDriverDir)
+	config.SetPath(nvidiaContainerCliKey("path"), nvidiaContainerCliExecutablePath)
+	config.SetPath(nvidiaContainerCliKey("ldconfig"), driverLdconfigPath)
+
+	_, err = config.WriteTo(targetConfig)
+	if err != nil {
+		return fmt.Errorf("error writing config: %v", err)
 	}
 	return nil
 }

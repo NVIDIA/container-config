@@ -48,9 +48,9 @@ testing::toolkit::install() {
 	# Ensure that the config file has the required contents.
 	# NOTE: This assumes that RUN_DIR is '/run/nvidia'
 	local -r nvidia_run_dir="/run/nvidia"
-	grep -q -E "^ldconfig = \"@${nvidia_run_dir}/driver/sbin/ldconfig.real\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
-	grep -q -E "^root = \"${nvidia_run_dir}/driver\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
-
+	grep -q -E "^\s*ldconfig = \"@${nvidia_run_dir}/driver/sbin/ldconfig(.real)?\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
+	grep -q -E "^\s*root = \"${nvidia_run_dir}/driver\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
+	grep -q -E "^\s*path = \"/usr/local/nvidia/toolkit/nvidia-container-cli\"" "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
 }
 
 testing::toolkit::delete() {
