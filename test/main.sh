@@ -17,7 +17,6 @@ set -eEuo pipefail
 shopt -s lastpipe
 
 readonly basedir="$(dirname "$(realpath "$0")")"
-source "${basedir}/../src/common.sh"
 source "${basedir}/common.sh"
 
 source "${basedir}/toolkit_test.sh"
