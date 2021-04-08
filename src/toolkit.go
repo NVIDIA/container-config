@@ -248,7 +248,7 @@ func installContainerRuntime(toolkitDir string) (string, error) {
 
 	preLines := []string{
 		"",
-		"cat /proc/modules | grep -e \"^nvidia \"",
+		"cat /proc/modules | grep -e \"^nvidia \" >/dev/null 2>&1",
 		"if [ \"${?}\" != \"0\" ]; then",
 		"	echo \"nvidia driver modules are not yet loaded, invoking runc directly\"",
 		"	exec runc \"$@\"",
