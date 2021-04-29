@@ -37,7 +37,7 @@ RUN rm -rf go.* && \
     rm -rf *.go && \
     rm -rf vendor
 
-FROM nvidia/cuda:11.0-base-ubi8
+FROM nvidia/cuda:11.2.1-base-ubi8
 
 ENV NVIDIA_DISABLE_REQUIRE="true"
 ENV NVIDIA_VISIBLE_DEVICES=all
