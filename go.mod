@@ -1,6 +1,6 @@
 module container-toolkit
 
-go 1.14
+go 1.16
 
 require (
 	github.com/Microsoft/hcsshim/test v0.0.0-20210219225935-ae4dec96de0b // indirect

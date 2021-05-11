@@ -18,6 +18,7 @@
 
 ##### Global variables #####
 
+GOLANG_VERSION ?= 1.16.4
 DOCKER   ?= docker
 ifeq ($(IMAGE),)
 REGISTRY ?= nvidia
@@ -66,6 +67,7 @@ $(BUILD_TARGETS): build-%:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-$(*) \
 		--build-arg VERSION="$(VERSION)" \
+		--build-arg GOLANG_VERSION="$(GOLANG_VERSION)" \
 		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
