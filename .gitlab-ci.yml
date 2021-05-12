@@ -2,10 +2,76 @@ include:
   - local: '.common-ci.yml'
 
 stages:
+  - image
+  - lint
   - build
   - test
   - deploy
   - release
+
+.dev-image:
+  variables:
+    BUILDIMAGE: ${CI_REGISTRY_IMAGE}/build
+    IMAGE_TAG: ${CI_COMMIT_SHA}
+
+build-dev-image:
+  extends:
+    - .dev-image
+  stage: image
+  before_script:
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+  script:
+    - apk --no-cache add make
+    - make .build-image
+    - make .push-build-image
+
+.requires-build-image:
+  extends:
+    - .dev-image
+  variables:
+    SKIP_IMAGE_BUILD: "yes"
+  before_script:
+    - apk --no-cache add make
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - make .pull-build-image
+
+.lint:
+  extends:
+    - .requires-build-image
+  stage: lint
+  allow_failure: true
+
+fmt:
+  extends:
+    - .lint
+  script:
+    - make docker-assert-fmt
+
+vet:
+  extends:
+    - .lint
+  script:
+    - make docker-vet
+
+lint:
+  extends:
+    - .lint
+  script:
+    - make docker-lint
+
+build:
+  extends:
+    - .requires-build-image
+  stage: build
+  script:
+    - make docker-build
+
+unit-tests:
+  extends:
+    - .requires-build-image
+  stage: test
+  script:
+    - make docker-coverage
 
 # A base step for defining integration tests.
 .integration:
