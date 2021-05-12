@@ -140,17 +140,17 @@ func Install(cli *cli.Context) error {
 
 	_, err = installContainerRuntime(toolkitDirArg)
 	if err != nil {
-		return fmt.Errorf("error installing up NVIDIA container runtime: %v", err)
+		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
 
 	nvidiaContainerCliExecutable, err := installContainerCLI(toolkitDirArg)
 	if err != nil {
-		return fmt.Errorf("error installing up NVIDIA container CLI: %v", err)
+		return fmt.Errorf("error installing NVIDIA container CLI: %v", err)
 	}
 
 	_, err = installRuntimeHook(toolkitDirArg, toolkitConfigPath)
 	if err != nil {
-		return fmt.Errorf("error installing up NVIDIA container runtime hook: %v", err)
+		return fmt.Errorf("error installing NVIDIA container runtime hook: %v", err)
 	}
 
 	err = installToolkitConfig(toolkitConfigPath, nvidiaDriverRootFlag, nvidiaContainerCliExecutable)
