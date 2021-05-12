@@ -91,3 +91,41 @@ bump-commit:
 	@git commit -m "$(BUMP_COMMIT)"
 	@echo "Applied the diff:"
 	@git --no-pager diff HEAD~1
+
+# Targets for go development
+.PHONY: fmt assert-fmt lint vet
+MODULE := .
+
+# Apply go fmt to the codebase
+fmt:
+	go list -f '{{.Dir}}' $(MODULE)/... \
+		| xargs gofmt -s -l -w
+
+assert-fmt:
+	go list -f '{{.Dir}}' $(MODULE)/... \
+		| xargs gofmt -s -l > fmt.out
+	@if [ -s fmt.out ]; then \
+		echo "\nERROR: The following files are not formatted:\n"; \
+		cat fmt.out; \
+		rm fmt.out; \
+		exit 1; \
+	else \
+		rm fmt.out; \
+	fi
+
+lint:
+# We use `go list -f '{{.Dir}}' $(MODULE)/...` to skip the `vendor` folder.
+	go list -f '{{.Dir}}' $(MODULE)/... | grep -v /internal/ | xargs golint -set_exit_status
+
+vet:
+	GOOS=linux go vet $(MODULE)/...
+
+build:
+	GOOS=linux go build $(MODULE)/...
+
+COVERAGE_FILE := coverage.out
+test: build
+	GOOS=linux go test -v -coverprofile=$(COVERAGE_FILE) $(MODULE)/...
+
+coverage: test
+	go tool cover -func=$(COVERAGE_FILE)
