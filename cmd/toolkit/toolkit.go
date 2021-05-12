@@ -411,13 +411,13 @@ func installFile(dest string, src string) error {
 
 	source, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("error opening source: %v", src, err)
+		return fmt.Errorf("error opening source: %v", err)
 	}
 	defer source.Close()
 
 	destination, err := os.Create(dest)
 	if err != nil {
-		return fmt.Errorf("error creating destination: %v", dest, err)
+		return fmt.Errorf("error creating destination: %v", err)
 	}
 	defer destination.Close()
 
@@ -442,7 +442,7 @@ func applyModeFromSource(dest string, src string) error {
 	}
 	err = os.Chmod(dest, sourceInfo.Mode())
 	if err != nil {
-		return fmt.Errorf("error setting mode for '%d': %v", dest, err)
+		return fmt.Errorf("error setting mode for '%v': %v", dest, err)
 	}
 	return nil
 }
