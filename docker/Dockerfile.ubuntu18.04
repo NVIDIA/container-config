@@ -20,22 +20,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         wget && \
     rm -rf /var/lib/apt/lists/*
 
-ENV GOLANG_VERSION 1.15.5
+ARG GOLANG_VERSION=x.x.x
 RUN wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz \
     | tar -C /usr/local -xz
 ENV PATH /usr/local/go/bin:$PATH
 
-WORKDIR /work
-COPY src/. .
+ENV GOPATH=/artifacts
 
-RUN go build -o nvidia-toolkit run.go
-RUN go build -o containerd containerd.go
-RUN go build -o crio crio.go
-RUN go build -o docker docker.go
-RUN go build -o toolkit toolkit.go
-RUN rm -rf go.* && \
-    rm -rf *.go && \
-    rm -rf vendor
+WORKDIR /build
+
+COPY . .
+
+RUN go install ./cmd/...
 
 FROM nvidia/cuda:11.2.1-base-ubuntu18.04
 
@@ -70,7 +66,7 @@ RUN /bin/bash -c " \
 
 WORKDIR /work
 
-COPY --from=build /work /work
+COPY --from=build /artifacts/bin /work
 
 
 ENV PATH=/work:$PATH

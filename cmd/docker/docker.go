@@ -270,13 +270,13 @@ func FlushConfig(config map[string]interface{}) error {
 	case 0:
 		err := os.Remove(configFlag)
 		if err != nil {
-			fmt.Errorf("unable to remove empty file: %v", err)
+			return fmt.Errorf("unable to remove empty file: %v", err)
 		}
 		log.Infof("Config empty, removing file")
 	default:
 		f, err := os.Create(configFlag)
 		if err != nil {
-			return fmt.Errorf("unable to open for writing: %v", configFlag, err)
+			return fmt.Errorf("unable to open %v for writing: %v", configFlag, err)
 		}
 		defer f.Close()
 

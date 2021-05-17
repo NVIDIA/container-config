@@ -18,6 +18,7 @@
 
 ##### Global variables #####
 
+GOLANG_VERSION ?= 1.16.4
 DOCKER   ?= docker
 ifeq ($(IMAGE),)
 REGISTRY ?= nvidia
@@ -66,6 +67,7 @@ $(BUILD_TARGETS): build-%:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-$(*) \
 		--build-arg VERSION="$(VERSION)" \
+		--build-arg GOLANG_VERSION="$(GOLANG_VERSION)" \
 		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
@@ -89,3 +91,90 @@ bump-commit:
 	@git commit -m "$(BUMP_COMMIT)"
 	@echo "Applied the diff:"
 	@git --no-pager diff HEAD~1
+
+# Targets for go development
+IMAGE_TAG ?= $(GOLANG_VERSION)
+BUILDIMAGE ?= $(IMAGE):$(IMAGE_TAG)-devel
+
+MODULE := .
+
+GO_TARGETS := binary build go-all check fmt assert-fmt lint lint-internal vet test examples coverage
+DOCKER_TARGETS := $(patsubst %, docker-%, $(GO_TARGETS))
+.PHONY: $(GO_TARGETS) $(DOCKER_TARGETS)
+
+GOOS := linux
+
+go-all: check test build binary
+check: assert-fmt lint vet
+
+binary:
+	GOOS=$(GOOS) go build ./cmd/nvidia-container-runtime.experimental
+
+build:
+	GOOS=$(GOOS) go build ./...
+
+examples:
+	GOOS=$(GOOS) go build ./examples/...
+
+.PHONY: fmt assert-fmt lint vet
+
+# Apply go fmt to the codebase
+fmt:
+	go list -f '{{.Dir}}' $(MODULE)/... \
+		| xargs gofmt -s -l -w
+
+assert-fmt:
+	go list -f '{{.Dir}}' $(MODULE)/... \
+		| xargs gofmt -s -l > fmt.out
+	@if [ -s fmt.out ]; then \
+		echo "\nERROR: The following files are not formatted:\n"; \
+		cat fmt.out; \
+		rm fmt.out; \
+		exit 1; \
+	else \
+		rm fmt.out; \
+	fi
+
+lint:
+# We use `go list -f '{{.Dir}}' $(MODULE)/...` to skip the `vendor` folder.
+	go list -f '{{.Dir}}' $(MODULE)/... | grep -v /internal/ | xargs golint -set_exit_status
+
+vet:
+	GOOS=$(GOOS) go vet $(MODULE)/...
+
+COVERAGE_FILE := coverage.out
+test: build
+	GOOS=$(GOOS) go test -v -coverprofile=$(COVERAGE_FILE) $(MODULE)/...
+
+coverage: test
+	go tool cover -func=$(COVERAGE_FILE)
+
+# Generate an image for containerized builds
+# Note: This image is local only
+.PHONY: .build-image .pull-build-image .push-build-image
+.build-image: docker/Dockerfile.devel
+	if [ x"$(SKIP_IMAGE_BUILD)" = x"" ]; then \
+		$(DOCKER) build \
+			--progress=plain \
+			--build-arg GOLANG_VERSION="$(GOLANG_VERSION)" \
+			--tag $(BUILDIMAGE) \
+			-f $(^) \
+			docker; \
+	fi
+
+.pull-build-image:
+	$(DOCKER) pull $(BUILDIMAGE)
+
+.push-build-image:
+	$(DOCKER) push $(BUILDIMAGE)
+
+$(DOCKER_TARGETS): docker-%: .build-image
+	@echo "Running 'make $(*)' in docker container $(BUILDIMAGE)"
+	$(DOCKER) run \
+		--rm \
+		-e GOCACHE=/tmp/.cache \
+		-v $(PWD):$(PWD) \
+		-w $(PWD) \
+		--user $$(id -u):$$(id -g) \
+		$(BUILDIMAGE) \
+			make $(*)
