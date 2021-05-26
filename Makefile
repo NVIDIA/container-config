@@ -36,7 +36,7 @@ NVIDIA_CONTAINER_RUNTIME_VERSION=3.5.0
 
 ##### Public rules #####
 DEFAULT_PUSH_TARGET := ubuntu18.04
-TARGETS := ubuntu18.04 ubuntu16.04 ubi8
+TARGETS := ubuntu20.04 ubuntu18.04 ubuntu16.04 ubi8
 
 PUSH_TARGETS := $(patsubst %, push-%, $(TARGETS))
 BUILD_TARGETS := $(patsubst %, build-%, $(TARGETS))
@@ -66,6 +66,7 @@ push-latest:
 build-ubuntu%: DOCKERFILE_SUFFIX := ubuntu
 build-ubuntu16.04: BASE_DIST := ubuntu16.04
 build-ubuntu18.04: BASE_DIST := ubuntu18.04
+build-ubuntu20.04: BASE_DIST := ubuntu20.04
 
 build-ubi8: DOCKERFILE_SUFFIX := ubi8
 build-ubi8: BASE_DIST := ubi8
