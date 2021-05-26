@@ -27,12 +27,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type executableTarget struct {
+	dotfileName string
+	wrapperName string
+}
+
 type executable struct {
-	source           string
-	dotFileExtension string
-	env              map[string]string
-	preLines         []string
-	argLines         []string
+	source   string
+	target   executableTarget
+	env      map[string]string
+	preLines []string
+	argLines []string
 }
 
 // install installs an executable component of the NVIDIA container toolkit. The source executable
@@ -40,28 +45,33 @@ type executable struct {
 func (e executable) install(destFolder string) (string, error) {
 	log.Infof("Installing executable '%v' to %v", e.source, destFolder)
 
-	dotRealFilename, err := e.installDotFile(destFolder)
-	if err != nil {
-		return "", fmt.Errorf("error installing %v file: %v", e.dotFileExtension, err)
-	}
-	log.Infof("Created '%v'", dotRealFilename)
+	dotfileName := e.dotfileName()
 
-	wrapperFilename, err := e.installWrapper(destFolder, dotRealFilename)
+	installedDotfileName, err := installFileToFolderWithName(destFolder, dotfileName, e.source)
 	if err != nil {
-		return "", fmt.Errorf("error wrapping '%v': %v", dotRealFilename, err)
+		return "", fmt.Errorf("error installing file '%v' as '%v': %v", e.source, dotfileName, err)
 	}
-	log.Infof("Created wrapper '%v'", wrapperFilename)
+	log.Infof("Installed '%v'", installedDotfileName)
+
+	wrapperFilename, err := e.installWrapper(destFolder, installedDotfileName)
+	if err != nil {
+		return "", fmt.Errorf("error wrapping '%v': %v", installedDotfileName, err)
+	}
+	log.Infof("Installed wrapper '%v'", wrapperFilename)
 
 	return wrapperFilename, nil
 }
 
-func (e executable) installDotFile(destFolder string) (string, error) {
-	dotFile := filepath.Base(e.source) + e.dotFileExtension
-	return installFileToFolderWithName(destFolder, dotFile, e.source)
+func (e executable) dotfileName() string {
+	return e.target.dotfileName
+}
+
+func (e executable) wrapperName() string {
+	return e.target.wrapperName
 }
 
 func (e executable) installWrapper(destFolder string, dotfileName string) (string, error) {
-	wrapperPath := getInstalledPath(destFolder, e.source)
+	wrapperPath := filepath.Join(destFolder, e.wrapperName())
 	wrapper, err := os.Create(wrapperPath)
 	if err != nil {
 		return "", fmt.Errorf("error creating executable wrapper: %v", err)
@@ -126,13 +136,6 @@ func (e executable) writeWrapperTo(wrapper io.Writer, destFolder string, dotfile
 	fmt.Fprintln(wrapper, "\t\"$@\"")
 
 	return nil
-}
-
-// getInstalledPath returns the path when file src is installed the specified
-// folder.
-func getInstalledPath(destFolder string, src string) string {
-	filename := filepath.Base(src)
-	return filepath.Join(destFolder, filename)
 }
 
 // ensureExecutable is equivalent to running chmod +x on the specified file

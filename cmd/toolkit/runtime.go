@@ -35,10 +35,13 @@ func newNvidiaContainerRuntimeInstaller() *executable {
 	}
 
 	r := executable{
-		source:           nvidiaContainerRuntimeSource,
-		dotFileExtension: ".real",
-		env:              env,
-		preLines:         preLines,
+		source: nvidiaContainerRuntimeSource,
+		target: executableTarget{
+			dotfileName: "nvidia-container-runtime.real",
+			wrapperName: "nvidia-container-runtime",
+		},
+		env:      env,
+		preLines: preLines,
 	}
 
 	return &r

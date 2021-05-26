@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNvidiaContainerRuntimeInstaller(t *testing.T) {
+func TestNvidiaContainerRuntimeInstallerWrapper(t *testing.T) {
 	r := newNvidiaContainerRuntimeInstaller()
 
 	const shebang = "#! /bin/sh"
@@ -54,5 +54,4 @@ func TestNvidiaContainerRuntimeInstaller(t *testing.T) {
 
 	exepectedContents := strings.Join(expectedLines, "\n")
 	require.Equal(t, exepectedContents, buf.String())
-
 }

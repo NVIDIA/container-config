@@ -264,9 +264,12 @@ func installContainerCLI(toolkitDir string) (string, error) {
 	}
 
 	e := executable{
-		source:           nvidiaContainerCliSource,
-		dotFileExtension: ".real",
-		env:              env,
+		source: nvidiaContainerCliSource,
+		target: executableTarget{
+			dotfileName: "nvidia-container-cli.real",
+			wrapperName: "nvidia-container-cli",
+		},
+		env: env,
 	}
 
 	installedPath, err := e.install(toolkitDir)
@@ -286,9 +289,12 @@ func installRuntimeHook(toolkitDir string, configFilePath string) (string, error
 	}
 
 	e := executable{
-		source:           nvidiaContainerRuntimeHookSource,
-		dotFileExtension: ".real",
-		argLines:         argLines,
+		source: nvidiaContainerRuntimeHookSource,
+		target: executableTarget{
+			dotfileName: "nvidia-container-toolkit.real",
+			wrapperName: "nvidia-container-toolkit",
+		},
+		argLines: argLines,
 	}
 
 	installedPath, err := e.install(toolkitDir)

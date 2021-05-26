@@ -121,8 +121,11 @@ func TestInstallExecutable(t *testing.T) {
 	require.NoError(t, sourceFile.Close())
 
 	e := executable{
-		source:           source,
-		dotFileExtension: ".real",
+		source: source,
+		target: executableTarget{
+			dotfileName: "input.real",
+			wrapperName: "input",
+		},
 	}
 
 	destFolder, err := os.MkdirTemp("", "output-*")
