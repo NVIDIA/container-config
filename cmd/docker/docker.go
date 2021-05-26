@@ -40,6 +40,8 @@ const (
 	defaultConfig       = "/etc/docker/daemon.json"
 	defaultSocket       = "/var/run/docker.sock"
 	defaultSetAsDefault = true
+	// defaultRuntimeName specifies the NVIDIA runtime to be use as the default runtime if setting the default runtime is enabled
+	defaultRuntimeName = nvidiaRuntimeName
 
 	reloadBackoff     = 5 * time.Second
 	maxReloadAttempts = 6
@@ -58,6 +60,7 @@ var nvidiaRuntimeBinaries = map[string]string{
 type options struct {
 	config       string
 	socket       string
+	runtimeName  string
 	setAsDefault bool
 	runtimeDir   string
 }
@@ -117,10 +120,18 @@ func main() {
 			EnvVars:     []string{"DOCKER_SOCKET"},
 		},
 		// The flags below are only used by the 'setup' command.
+		&cli.StringFlag{
+			Name:        "runtime-name",
+			Aliases:     []string{"r"},
+			Usage:       "Specify the name of the `nvidia` runtime. If set-as-default is selected, the runtime is used as the default runtime.",
+			Value:       defaultRuntimeName,
+			Destination: &options.runtimeName,
+			EnvVars:     []string{"DOCKER_RUNTIME_NAME"},
+		},
 		&cli.BoolFlag{
 			Name:        "set-as-default",
 			Aliases:     []string{"d"},
-			Usage:       "Set nvidia as the default runtime",
+			Usage:       "Set the `nvidia` runtime as the default runtime. If --runtime-name is specified as `nvidia-experimental` the experimental runtime is set as the default runtime instead",
 			Value:       defaultSetAsDefault,
 			Destination: &options.setAsDefault,
 			EnvVars:     []string{"DOCKER_SET_AS_DEFAULT"},
@@ -254,8 +265,9 @@ func LoadConfig(config string) (map[string]interface{}, error) {
 
 // UpdateConfig updates the docker config to include the nvidia runtimes
 func UpdateConfig(config map[string]interface{}, o *options) error {
-	if o.setAsDefault {
-		config["default-runtime"] = nvidiaRuntimeName
+	defaultRuntime := o.getDefaultRuntime()
+	if defaultRuntime != "" {
+		config["default-runtime"] = defaultRuntime
 	}
 
 	runtimes := make(map[string]interface{})
@@ -274,7 +286,8 @@ func UpdateConfig(config map[string]interface{}, o *options) error {
 //RevertConfig reverts the docker config to remove the nvidia runtime
 func RevertConfig(config map[string]interface{}) error {
 	if _, exists := config["default-runtime"]; exists {
-		if config["default-runtime"] == nvidiaRuntimeName {
+		defaultRuntime := config["default-runtime"].(string)
+		if _, exists := nvidiaRuntimeBinaries[defaultRuntime]; exists {
 			config["default-runtime"] = defaultDockerRuntime
 		}
 	}
@@ -407,15 +420,43 @@ func SignalDocker(socket string) error {
 	return nil
 }
 
+// getDefaultRuntime returns the default runtime for the configured options.
+// If the configuration is invalid or the default runtimes should not be set
+// the empty string is returned.
+func (o options) getDefaultRuntime() string {
+	if o.setAsDefault == false {
+		return ""
+	}
+
+	return o.runtimeName
+}
+
 // runtimes returns the docker runtime definitions for the supported nvidia runtimes
 // for the given options. This includes the path with the options runtimeDir applied
 func (o options) runtimes() map[string]interface{} {
 	runtimes := make(map[string]interface{})
-	for r, bin := range nvidiaRuntimeBinaries {
+	for r, bin := range o.getRuntimeBinaries() {
 		runtimes[r] = map[string]interface{}{
-			"path": filepath.Join(o.runtimeDir, bin),
+			"path": bin,
 			"args": []string{},
 		}
 	}
 	return runtimes
+}
+
+// getRuntimeBinaries returns a map of runtime names to binary paths. This includes the
+// renaming of the `nvidia` runtime as per the --runtime-class command line flag.
+func (o options) getRuntimeBinaries() map[string]string {
+	runtimeBinaries := make(map[string]string)
+
+	for rt, bin := range nvidiaRuntimeBinaries {
+		runtime := rt
+		if o.runtimeName != "" && o.runtimeName != nvidiaExperimentalRuntimeName && runtime == defaultRuntimeName {
+			runtime = o.runtimeName
+		}
+
+		runtimeBinaries[runtime] = filepath.Join(o.runtimeDir, bin)
+	}
+
+	return runtimeBinaries
 }

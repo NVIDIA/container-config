@@ -17,20 +17,105 @@
 package main
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
+func TestUpdateConfigDefaultRuntime(t *testing.T) {
+	const runtimeDir = "/test/runtime/dir"
+
+	testCases := []struct {
+		setAsDefault               bool
+		runtimeName                string
+		expectedDefaultRuntimeName interface{}
+	}{
+		{},
+		{
+			setAsDefault:               false,
+			expectedDefaultRuntimeName: nil,
+		},
+		{
+			setAsDefault:               true,
+			runtimeName:                "NAME",
+			expectedDefaultRuntimeName: "NAME",
+		},
+		{
+			setAsDefault:               true,
+			runtimeName:                "nvidia-experimental",
+			expectedDefaultRuntimeName: "nvidia-experimental",
+		},
+		{
+			setAsDefault:               true,
+			runtimeName:                "nvidia",
+			expectedDefaultRuntimeName: "nvidia",
+		},
+	}
+
+	for i, tc := range testCases {
+		o := &options{
+			setAsDefault: tc.setAsDefault,
+			runtimeName:  tc.runtimeName,
+			runtimeDir:   runtimeDir,
+		}
+
+		config := map[string]interface{}{}
+
+		err := UpdateConfig(config, o)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		defaultRuntimeName := config["default-runtime"]
+		require.EqualValues(t, tc.expectedDefaultRuntimeName, defaultRuntimeName, "%d: %v", i, tc)
+	}
+}
+
 func TestUpdateConfig(t *testing.T) {
+	const runtimeDir = "/test/runtime/dir"
+
 	testCases := []struct {
 		config         map[string]interface{}
 		setAsDefault   bool
+		runtimeName    string
 		expectedConfig map[string]interface{}
 	}{
 		{
 			config:       map[string]interface{}{},
 			setAsDefault: false,
+			expectedConfig: map[string]interface{}{
+				"runtimes": map[string]interface{}{
+					"nvidia": map[string]interface{}{
+						"path": "/test/runtime/dir/nvidia-container-runtime",
+						"args": []string{},
+					},
+					"nvidia-experimental": map[string]interface{}{
+						"path": "/test/runtime/dir/nvidia-container-runtime-experimental",
+						"args": []string{},
+					},
+				},
+			},
+		},
+		{
+			config:       map[string]interface{}{},
+			setAsDefault: false,
+			runtimeName:  "NAME",
+			expectedConfig: map[string]interface{}{
+				"runtimes": map[string]interface{}{
+					"NAME": map[string]interface{}{
+						"path": "/test/runtime/dir/nvidia-container-runtime",
+						"args": []string{},
+					},
+					"nvidia-experimental": map[string]interface{}{
+						"path": "/test/runtime/dir/nvidia-container-runtime-experimental",
+						"args": []string{},
+					},
+				},
+			},
+		},
+		{
+			config:       map[string]interface{}{},
+			setAsDefault: false,
+			runtimeName:  "nvidia-experimental",
 			expectedConfig: map[string]interface{}{
 				"runtimes": map[string]interface{}{
 					"nvidia": map[string]interface{}{
@@ -76,7 +161,6 @@ func TestUpdateConfig(t *testing.T) {
 					},
 				},
 			},
-			setAsDefault: false,
 			expectedConfig: map[string]interface{}{
 				"runtimes": map[string]interface{}{
 					"not-nvidia": map[string]interface{}{
@@ -95,8 +179,11 @@ func TestUpdateConfig(t *testing.T) {
 			},
 		},
 		{
-			config:       map[string]interface{}{},
+			config: map[string]interface{}{
+				"default-runtime": "runc",
+			},
 			setAsDefault: true,
+			runtimeName:  "nvidia",
 			expectedConfig: map[string]interface{}{
 				"default-runtime": "nvidia",
 				"runtimes": map[string]interface{}{
@@ -116,8 +203,9 @@ func TestUpdateConfig(t *testing.T) {
 				"default-runtime": "runc",
 			},
 			setAsDefault: true,
+			runtimeName:  "nvidia-experimental",
 			expectedConfig: map[string]interface{}{
-				"default-runtime": "nvidia",
+				"default-runtime": "nvidia-experimental",
 				"runtimes": map[string]interface{}{
 					"nvidia": map[string]interface{}{
 						"path": "/test/runtime/dir/nvidia-container-runtime",
@@ -163,12 +251,19 @@ func TestUpdateConfig(t *testing.T) {
 	for i, tc := range testCases {
 		options := &options{
 			setAsDefault: tc.setAsDefault,
-			runtimeDir:   "/test/runtime/dir",
+			runtimeName:  tc.runtimeName,
+			runtimeDir:   runtimeDir,
 		}
 		err := UpdateConfig(tc.config, options)
-
 		require.NoError(t, err, "%d: %v", i, tc)
-		require.EqualValues(t, tc.expectedConfig, tc.config, "%d: %v", i, tc)
+
+		configContent, err := json.MarshalIndent(tc.config, "", "    ")
+		require.NoError(t, err)
+
+		expectedContent, err := json.MarshalIndent(tc.expectedConfig, "", "    ")
+		require.NoError(t, err)
+
+		require.EqualValues(t, string(expectedContent), string(configContent), "%d: %v", i, tc)
 	}
 }
 
@@ -276,6 +371,53 @@ func TestRevertConfig(t *testing.T) {
 		err := RevertConfig(tc.config)
 
 		require.NoError(t, err, "%d: %v", i, tc)
-		require.EqualValues(t, tc.expectedConfig, tc.config, "%d: %v", i, tc)
+
+		configContent, err := json.MarshalIndent(tc.config, "", "    ")
+		require.NoError(t, err)
+
+		expectedContent, err := json.MarshalIndent(tc.expectedConfig, "", "    ")
+		require.NoError(t, err)
+
+		require.EqualValues(t, string(expectedContent), string(configContent), "%d: %v", i, tc)
+	}
+}
+
+func TestFlagsDefaultRuntime(t *testing.T) {
+	testCases := []struct {
+		setAsDefault bool
+		runtimeName  string
+		expected     string
+	}{
+		{
+			expected: "",
+		},
+		{
+			runtimeName: "not-bool",
+			expected:    "",
+		},
+		{
+			setAsDefault: false,
+			runtimeName:  "nvidia",
+			expected:     "",
+		},
+		{
+			setAsDefault: true,
+			runtimeName:  "nvidia",
+			expected:     "nvidia",
+		},
+		{
+			setAsDefault: true,
+			runtimeName:  "nvidia-experimental",
+			expected:     "nvidia-experimental",
+		},
+	}
+
+	for i, tc := range testCases {
+		f := options{
+			setAsDefault: tc.setAsDefault,
+			runtimeName:  tc.runtimeName,
+		}
+
+		require.Equal(t, tc.expected, f.getDefaultRuntime(), "%d: %v", i, tc)
 	}
 }
