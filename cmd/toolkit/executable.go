@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -80,19 +81,22 @@ func (e executable) installWrapper(destFolder string, dotfileName string) (strin
 }
 
 func (e executable) writeWrapperTo(wrapper io.Writer, destFolder string, dotfileName string) error {
+	r := newReplacements(destDirPattern, destFolder)
+
 	// Add the shebang
 	fmt.Fprintln(wrapper, "#! /bin/sh")
 
 	// Add the preceding lines if any
 	for _, line := range e.preLines {
-		fmt.Fprintf(wrapper, "%s\n", line)
+		fmt.Fprintf(wrapper, "%s\n", r.apply(line))
 	}
 
 	// Update the path to include the destination folder
-	env := make(map[string]string)
-
-	for k, v := range e.env {
-		env[k] = v
+	var env map[string]string
+	if e.env == nil {
+		env = make(map[string]string)
+	} else {
+		env = e.env
 	}
 
 	path, specified := env["PATH"]
@@ -101,15 +105,22 @@ func (e executable) writeWrapperTo(wrapper io.Writer, destFolder string, dotfile
 	}
 	env["PATH"] = strings.Join([]string{destFolder, path}, ":")
 
-	for e, v := range env {
-		fmt.Fprintf(wrapper, "%s=%s \\\n", e, v)
+	var sortedEnvvars []string
+	for e := range env {
+		sortedEnvvars = append(sortedEnvvars, e)
+	}
+	sort.Strings(sortedEnvvars)
+
+	for _, e := range sortedEnvvars {
+		v := env[e]
+		fmt.Fprintf(wrapper, "%s=%s \\\n", e, r.apply(v))
 	}
 	// Add the call to the target executable
 	fmt.Fprintf(wrapper, "%s \\\n", dotfileName)
 
 	// Insert additional lines in the `arg` list
 	for _, line := range e.argLines {
-		fmt.Fprintf(wrapper, "\t%s \\\n", line)
+		fmt.Fprintf(wrapper, "\t%s \\\n", r.apply(line))
 	}
 	// Add the script arguments "$@"
 	fmt.Fprintln(wrapper, "\t\"$@\"")

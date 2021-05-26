@@ -244,32 +244,13 @@ func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string, nvid
 // installContainerRuntime sets up the NVIDIA container runtime, copying the executable
 // and implementing the required wrapper
 func installContainerRuntime(toolkitDir string) (string, error) {
-	log.Infof("Installing NVIDIA container runtime from '%v'", nvidiaContainerRuntimeSource)
+	r := newNvidiaContainerRuntimeInstaller()
 
-	preLines := []string{
-		"",
-		"cat /proc/modules | grep -e \"^nvidia \" >/dev/null 2>&1",
-		"if [ \"${?}\" != \"0\" ]; then",
-		"	echo \"nvidia driver modules are not yet loaded, invoking runc directly\"",
-		"	exec runc \"$@\"",
-		"fi",
-		"",
-	}
-	env := map[string]string{
-		"XDG_CONFIG_HOME": filepath.Join(toolkitDir, ".config"),
-	}
-
-	e := executable{
-		source:           nvidiaContainerRuntimeSource,
-		dotFileExtension: ".real",
-		env:              env,
-		preLines:         preLines,
-	}
-
-	installedPath, err := e.install(toolkitDir)
+	installedPath, err := r.install(toolkitDir)
 	if err != nil {
 		return "", fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
+
 	return installedPath, nil
 }
 
