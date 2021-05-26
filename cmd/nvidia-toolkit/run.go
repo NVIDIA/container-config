@@ -15,21 +15,21 @@ import (
 )
 
 const (
-	RunDir         = "/run/nvidia"
-	PidFile        = RunDir + "/toolkit.pid"
-	ToolkitCommand = "toolkit"
-	ToolkitSubDir  = "toolkit"
+	runDir         = "/run/nvidia"
+	pidFile        = runDir + "/toolkit.pid"
+	toolkitCommand = "toolkit"
+	toolkitSubDir  = "toolkit"
 
-	DefaultNoDaemon    = false
-	DefaultToolkitArgs = ""
-	DefaultRuntime     = "docker"
-	DefaultRuntimeArgs = ""
+	defaultNoDaemon    = false
+	defaultToolkitArgs = ""
+	defaultRuntime     = "docker"
+	defaultRuntimeArgs = ""
 )
 
-var AvailableRuntimes = map[string]struct{}{"docker": {}, "crio": {}, "containerd": {}}
+var availableRuntimes = map[string]struct{}{"docker": {}, "crio": {}, "containerd": {}}
 
-var WaitingForSignal = make(chan bool, 1)
-var SignalReceived = make(chan bool, 1)
+var waitingForSignal = make(chan bool, 1)
+var signalReceived = make(chan bool, 1)
 
 var destinationArg string
 var noDaemonFlag bool
@@ -53,7 +53,7 @@ func main() {
 			Name:        "no-daemon",
 			Aliases:     []string{"n"},
 			Usage:       "terminate immediatly after setting up the runtime. Note that no cleanup will be performed",
-			Value:       DefaultNoDaemon,
+			Value:       defaultNoDaemon,
 			Destination: &noDaemonFlag,
 			EnvVars:     []string{"NO_DAEMON"},
 		},
@@ -61,7 +61,7 @@ func main() {
 			Name:        "toolkit-args",
 			Aliases:     []string{"t"},
 			Usage:       "arguments to pass to the underlying 'toolkit' command",
-			Value:       DefaultToolkitArgs,
+			Value:       defaultToolkitArgs,
 			Destination: &toolkitArgsFlag,
 			EnvVars:     []string{"TOOLKIT_ARGS"},
 		},
@@ -69,7 +69,7 @@ func main() {
 			Name:        "runtime",
 			Aliases:     []string{"r"},
 			Usage:       "the runtime to setup on this node. One of {'docker', 'crio', 'containerd'}",
-			Value:       DefaultRuntime,
+			Value:       defaultRuntime,
 			Destination: &runtimeFlag,
 			EnvVars:     []string{"RUNTIME"},
 		},
@@ -77,7 +77,7 @@ func main() {
 			Name:        "runtime-args",
 			Aliases:     []string{"u"},
 			Usage:       "arguments to pass to 'docker', 'crio', or 'containerd' setup command",
-			Value:       DefaultRuntimeArgs,
+			Value:       defaultRuntimeArgs,
 			Destination: &runtimeArgsFlag,
 			EnvVars:     []string{"RUNTIME_ARGS"},
 		},
@@ -93,7 +93,8 @@ func main() {
 	}
 
 	if err := c.Run(remainingArgs); err != nil {
-		log.Fatal(fmt.Errorf("Error: %v", err))
+		log.Errorf("error running nvidia-toolkit: %v", err)
+		os.Exit(1)
 	}
 
 	log.Infof("Completed %v", c.Name)
@@ -101,34 +102,34 @@ func main() {
 
 // Run runs the core logic of the CLI
 func Run(c *cli.Context) error {
-	err := VerifyFlags()
+	err := verifyFlags()
 	if err != nil {
 		return fmt.Errorf("unable to verify flags: %v", err)
 	}
 
-	err = Initialize()
+	err = initialize()
 	if err != nil {
 		return fmt.Errorf("unable to initialize: %v", err)
 	}
-	defer Shutdown()
+	defer shutdown()
 
-	err = InstallToolkit()
+	err = installToolkit()
 	if err != nil {
 		return fmt.Errorf("unable to install toolkit: %v", err)
 	}
 
-	err = SetupRuntime()
+	err = setupRuntime()
 	if err != nil {
 		return fmt.Errorf("unable to setup runtime: %v", err)
 	}
 
 	if !noDaemonFlag {
-		err = WaitForSignal()
+		err = waitForSignal()
 		if err != nil {
 			return fmt.Errorf("unable to wait for signal: %v", err)
 		}
 
-		err = CleanupRuntime()
+		err = cleanupRuntime()
 		if err != nil {
 			return fmt.Errorf("unable to cleanup runtime: %v", err)
 		}
@@ -137,6 +138,7 @@ func Run(c *cli.Context) error {
 	return nil
 }
 
+// ParseArgs parses the command line arguments and returns the remaining arguments
 func ParseArgs(args []string) ([]string, error) {
 	log.Infof("Parsing arguments")
 
@@ -169,25 +171,25 @@ func ParseArgs(args []string) ([]string, error) {
 	return append([]string{args[0]}, args[numPositionalArgs:]...), nil
 }
 
-func VerifyFlags() error {
+func verifyFlags() error {
 	log.Infof("Verifying Flags")
-	if _, exists := AvailableRuntimes[runtimeFlag]; !exists {
+	if _, exists := availableRuntimes[runtimeFlag]; !exists {
 		return fmt.Errorf("unknown runtime: %v", runtimeFlag)
 	}
 	return nil
 }
 
-func Initialize() error {
+func initialize() error {
 	log.Infof("Initializing")
 
-	f, err := os.Create(PidFile)
+	f, err := os.Create(pidFile)
 	if err != nil {
 		return fmt.Errorf("unable to create pidfile: %v", err)
 	}
 
 	err = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
 	if err != nil {
-		log.Warnf("Unable to get exclusive lock on '%v'", PidFile)
+		log.Warnf("Unable to get exclusive lock on '%v'", pidFile)
 		log.Warnf("This normally means an instance of the NVIDIA toolkit Container is already running, aborting")
 		return fmt.Errorf("unable to get flock on pidfile: %v", err)
 	}
@@ -202,11 +204,11 @@ func Initialize() error {
 	go func() {
 		<-sigs
 		select {
-		case <-WaitingForSignal:
-			SignalReceived <- true
+		case <-waitingForSignal:
+			signalReceived <- true
 		default:
 			log.Infof("Signal received, exiting early")
-			Shutdown()
+			shutdown()
 			os.Exit(0)
 		}
 	}()
@@ -214,25 +216,25 @@ func Initialize() error {
 	return nil
 }
 
-func InstallToolkit() error {
-	toolkitDir := filepath.Join(destinationArg, ToolkitSubDir)
+func installToolkit() error {
+	toolkitDir := filepath.Join(destinationArg, toolkitSubDir)
 
 	log.Infof("Installing toolkit")
 
-	cmdline := fmt.Sprintf("%v install %v %v\n", ToolkitCommand, toolkitArgsFlag, toolkitDir)
+	cmdline := fmt.Sprintf("%v install %v %v\n", toolkitCommand, toolkitArgsFlag, toolkitDir)
 	cmd := exec.Command("sh", "-c", cmdline)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("error running %v command: %v", ToolkitCommand, err)
+		return fmt.Errorf("error running %v command: %v", toolkitCommand, err)
 	}
 
 	return nil
 }
 
-func SetupRuntime() error {
-	toolkitDir := filepath.Join(destinationArg, ToolkitSubDir)
+func setupRuntime() error {
+	toolkitDir := filepath.Join(destinationArg, toolkitSubDir)
 
 	log.Infof("Setting up runtime")
 
@@ -249,15 +251,15 @@ func SetupRuntime() error {
 	return nil
 }
 
-func WaitForSignal() error {
+func waitForSignal() error {
 	log.Infof("Waiting for signal")
-	WaitingForSignal <- true
-	<-SignalReceived
+	waitingForSignal <- true
+	<-signalReceived
 	return nil
 }
 
-func CleanupRuntime() error {
-	toolkitDir := filepath.Join(destinationArg, ToolkitSubDir)
+func cleanupRuntime() error {
+	toolkitDir := filepath.Join(destinationArg, toolkitSubDir)
 
 	log.Infof("Cleaning up Runtime")
 
@@ -274,10 +276,10 @@ func CleanupRuntime() error {
 	return nil
 }
 
-func Shutdown() {
+func shutdown() {
 	log.Infof("Shutting Down")
 
-	err := os.Remove(PidFile)
+	err := os.Remove(pidFile)
 	if err != nil {
 		log.Warnf("Unable to remove pidfile: %v", err)
 	}

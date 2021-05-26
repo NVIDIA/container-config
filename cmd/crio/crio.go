@@ -28,9 +28,8 @@ import (
 )
 
 const (
-	DefaultHooksDir     = "/usr/share/containers/oci/hooks.d"
-	DefaultHookFilename = "oci-nvidia-hook.json"
-	CRIOCommandName     = "crio"
+	defaultHooksDir     = "/usr/share/containers/oci/hooks.d"
+	defaultHookFilename = "oci-nvidia-hook.json"
 )
 
 var hooksDirFlag string
@@ -40,7 +39,7 @@ var tooklitDirArg string
 func main() {
 	// Create the top-level CLI
 	c := cli.NewApp()
-	c.Name = CRIOCommandName
+	c.Name = "crio"
 	c.Usage = "Update cri-o hooks to include the NVIDIA runtime hook"
 	c.ArgsUsage = "<toolkit_dirname>"
 	c.Version = "0.1.0"
@@ -74,19 +73,19 @@ func main() {
 			Name:        "hooks-dir",
 			Aliases:     []string{"d"},
 			Usage:       "path to the cri-o hooks directory",
-			Value:       DefaultHooksDir,
+			Value:       defaultHooksDir,
 			Destination: &hooksDirFlag,
 			EnvVars:     []string{"CRIO_HOOKS_DIR"},
-			DefaultText: DefaultHooksDir,
+			DefaultText: defaultHooksDir,
 		},
 		&cli.StringFlag{
 			Name:        "hook-filename",
 			Aliases:     []string{"f"},
 			Usage:       "filename of the cri-o hook that will be created / removed in the hooks directory",
-			Value:       DefaultHookFilename,
+			Value:       defaultHookFilename,
 			Destination: &hookFilenameFlag,
 			EnvVars:     []string{"CRIO_HOOK_FILENAME"},
-			DefaultText: DefaultHookFilename,
+			DefaultText: defaultHookFilename,
 		},
 	}
 

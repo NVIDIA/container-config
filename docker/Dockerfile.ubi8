@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ARG BASE_DIST
+ARG CUDA_VERSION
 FROM ubuntu:20.04 as build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,7 +35,7 @@ COPY . .
 
 RUN go install ./cmd/...
 
-FROM nvidia/cuda:11.2.1-base-ubi8
+FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST}
 
 ENV NVIDIA_DISABLE_REQUIRE="true"
 ENV NVIDIA_VISIBLE_DEVICES=all

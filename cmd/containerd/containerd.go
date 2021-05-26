@@ -18,20 +18,20 @@ import (
 )
 
 const (
-	RuntimeTypeV1 = "io.containerd.runtime.v1.linux"
-	RuntimeTypeV2 = "io.containerd.runc.v1"
-	RuntimeBinary = "nvidia-container-runtime"
+	runtimeTypeV1 = "io.containerd.runtime.v1.linux"
+	runtimeTypeV2 = "io.containerd.runc.v1"
+	runtimeBinary = "nvidia-container-runtime"
 
-	DefaultConfig             = "/etc/containerd/config.toml"
-	DefaultSocket             = "/run/containerd/containerd.sock"
-	DefaultRuntimeClass       = "nvidia"
-	DefaultSetAsDefault       = true
-	DefaultNoSignalContainerd = false
+	defaultConfig             = "/etc/containerd/config.toml"
+	defaultSocket             = "/run/containerd/containerd.sock"
+	defaultRuntimeClass       = "nvidia"
+	defaultSetAsDefault       = true
+	defaultNoSignalContainerd = false
 
-	ReloadBackoff     = 5 * time.Second
-	MaxReloadAttempts = 6
+	reloadBackoff     = 5 * time.Second
+	maxReloadAttempts = 6
 
-	SocketMessageToGetPID = ""
+	socketMessageToGetPID = ""
 )
 
 var runtimeDirnameArg string
@@ -81,7 +81,7 @@ func main() {
 			Name:        "config",
 			Aliases:     []string{"c"},
 			Usage:       "Path to the containerd config file",
-			Value:       DefaultConfig,
+			Value:       defaultConfig,
 			Destination: &configFlag,
 			EnvVars:     []string{"CONTAINERD_CONFIG"},
 		},
@@ -89,7 +89,7 @@ func main() {
 			Name:        "socket",
 			Aliases:     []string{"s"},
 			Usage:       "Path to the containerd socket file",
-			Value:       DefaultSocket,
+			Value:       defaultSocket,
 			Destination: &socketFlag,
 			EnvVars:     []string{"CONTAINERD_SOCKET"},
 		},
@@ -97,7 +97,7 @@ func main() {
 			Name:        "runtime-class",
 			Aliases:     []string{"r"},
 			Usage:       "The name of the runtime class to set for the nvidia-container-runtime",
-			Value:       DefaultRuntimeClass,
+			Value:       defaultRuntimeClass,
 			Destination: &runtimeClassFlag,
 			EnvVars:     []string{"CONTAINERD_RUNTIME_CLASS"},
 		},
@@ -106,14 +106,14 @@ func main() {
 			Name:        "set-as-default",
 			Aliases:     []string{"d"},
 			Usage:       "Set nvidia-container-runtime as the default runtime",
-			Value:       DefaultSetAsDefault,
+			Value:       defaultSetAsDefault,
 			Destination: &setAsDefaultFlag,
 			EnvVars:     []string{"CONTAINERD_SET_AS_DEFAULT"},
 		},
 		&cli.BoolFlag{
 			Name:        "no-signal-containerd",
 			Usage:       "Do not signal containerd to reload the configuration",
-			Value:       DefaultNoSignalContainerd,
+			Value:       defaultNoSignalContainerd,
 			Destination: &noSignalContainerd,
 			Hidden:      true,
 		},
@@ -173,7 +173,7 @@ func Setup(c *cli.Context) error {
 	return nil
 }
 
-// Setup reverts a containerd configuration to remove the nvidia-containerd-runtime and reloads it
+// Cleanup reverts a containerd configuration to remove the nvidia-containerd-runtime and reloads it
 func Cleanup(c *cli.Context) error {
 	log.Infof("Starting 'cleanup' for %v", c.App.Name)
 
@@ -329,7 +329,7 @@ func RevertConfig(config *toml.Tree, version int) error {
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
 func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
+	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
 
 	// We ensure that the version is set to 1. This handles the case where the config was empty and
 	// the config version was determined from the containerd version.
@@ -382,7 +382,7 @@ func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
 		runc, _ = toml.Load(runc.String())
 		config.SetPath(runtimeClassPath, runc)
 	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), RuntimeTypeV1)
+		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeV1)
 		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
 		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
 		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
@@ -391,7 +391,7 @@ func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
 
 	if setAsDefaultFlag {
 		if config.GetPath(defaultRuntimePath) == nil {
-			config.SetPath(append(defaultRuntimePath, "runtime_type"), RuntimeTypeV1)
+			config.SetPath(append(defaultRuntimePath, "runtime_type"), runtimeTypeV1)
 			config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
 			config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
 			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
@@ -436,7 +436,7 @@ func RevertV1Config(config *toml.Tree) error {
 
 	config.DeletePath(runtimeClassPath)
 	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
-		if RuntimeBinary == path.Base(runtime) {
+		if runtimeBinary == path.Base(runtime) {
 			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
 		}
 	}
@@ -496,7 +496,7 @@ func RevertV1Config(config *toml.Tree) error {
 
 // UpdateV2Config performs an update specific to v2 of the containerd config
 func UpdateV2Config(config *toml.Tree) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
+	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
 
 	// We ensure that the version is set to 2. This handles the case where the config was empty and
 	// the config version was determined from the containerd version.
@@ -535,7 +535,7 @@ func UpdateV2Config(config *toml.Tree) error {
 		runc, _ = toml.Load(runc.String())
 		config.SetPath(runtimeClassPath, runc)
 	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), RuntimeTypeV2)
+		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeV2)
 		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
 		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
 		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
@@ -651,7 +651,7 @@ func SignalContainerd() error {
 			return fmt.Errorf("unable to SetsockoptInt on socket fd: %v", err)
 		}
 
-		_, _, err = conn.(*net.UnixConn).WriteMsgUnix([]byte(SocketMessageToGetPID), nil, nil)
+		_, _, err = conn.(*net.UnixConn).WriteMsgUnix([]byte(socketMessageToGetPID), nil, nil)
 		if err != nil {
 			return fmt.Errorf("unable to WriteMsgUnix on socket fd: %v", err)
 		}
@@ -681,21 +681,21 @@ func SignalContainerd() error {
 		return nil
 	}
 
-	// Try to send a SIGHUP up to MaxReloadAttempts times
+	// Try to send a SIGHUP up to maxReloadAttempts times
 	var err error
-	for i := 0; i < MaxReloadAttempts; i++ {
+	for i := 0; i < maxReloadAttempts; i++ {
 		err = retriable()
 		if err == nil {
 			break
 		}
-		if i == MaxReloadAttempts-1 {
+		if i == maxReloadAttempts-1 {
 			break
 		}
-		log.Warnf("Error signaling containerd, attempt %v/%v: %v", i+1, MaxReloadAttempts, err)
-		time.Sleep(ReloadBackoff)
+		log.Warnf("Error signaling containerd, attempt %v/%v: %v", i+1, maxReloadAttempts, err)
+		time.Sleep(reloadBackoff)
 	}
 	if err != nil {
-		log.Warnf("Max retries reached %v/%v, aborting", MaxReloadAttempts, MaxReloadAttempts)
+		log.Warnf("Max retries reached %v/%v, aborting", maxReloadAttempts, maxReloadAttempts)
 		return err
 	}
 

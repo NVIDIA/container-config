@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ARG BASE_DIST
+ARG CUDA_VERSION
 FROM ubuntu:20.04 as build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         g++ \
+        git \
         ca-certificates \
         wget && \
     rm -rf /var/lib/apt/lists/*
@@ -33,7 +36,7 @@ COPY . .
 
 RUN go install ./cmd/...
 
-FROM nvidia/cuda:11.2.1-base-ubuntu18.04
+FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST}
 
 ENV NVIDIA_DISABLE_REQUIRE="true"
 ENV NVIDIA_VISIBLE_DEVICES=all
@@ -47,8 +50,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     software-properties-common
 
+ARG BASE_DIST
 RUN curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add - && \
-    curl -s -L https://nvidia.github.io/nvidia-docker/ubuntu18.04/nvidia-docker.list | \
+    curl -s -L "https://nvidia.github.io/nvidia-docker/${BASE_DIST}/nvidia-docker.list" | \
         tee /etc/apt/sources.list.d/nvidia-docker.list
 
 ARG LIBNVIDIA_CONTAINER_VERSION
@@ -63,6 +67,8 @@ RUN /bin/bash -c " \
     libnvidia-container-tools=\${LIBNVIDIA_CONTAINER_VERSION/-/\~}-1 \
     nvidia-container-toolkit=\${NVIDIA_CONTAINER_TOOLKIT_VERSION/-/\~}-1 \
     nvidia-container-runtime=\${NVIDIA_CONTAINER_RUNTIME_VERSION/-/\~}-1"
+
+RUN rm -rf /var/lib/apt/lists/*
 
 WORKDIR /work
 

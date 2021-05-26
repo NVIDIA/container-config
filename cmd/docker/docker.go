@@ -16,18 +16,18 @@ import (
 )
 
 const (
-	RuntimeName   = "nvidia"
-	RuntimeBinary = "nvidia-container-runtime"
+	runtimeName   = "nvidia"
+	runtimeBinary = "nvidia-container-runtime"
 
-	DefaultConfig       = "/etc/docker/daemon.json"
-	DefaultSocket       = "/var/run/docker.sock"
-	DefaultSetAsDefault = true
+	defaultConfig       = "/etc/docker/daemon.json"
+	defaultSocket       = "/var/run/docker.sock"
+	defaultSetAsDefault = true
 
-	ReloadBackoff     = 5 * time.Second
-	MaxReloadAttempts = 6
+	reloadBackoff     = 5 * time.Second
+	maxReloadAttempts = 6
 
-	DefaultDockerRuntime  = "runc"
-	SocketMessageToGetPID = "GET /info HTTP/1.0\r\n\r\n"
+	defaultDockerRuntime  = "runc"
+	socketMessageToGetPID = "GET /info HTTP/1.0\r\n\r\n"
 )
 
 var runtimeDirnameArg string
@@ -75,7 +75,7 @@ func main() {
 			Name:        "config",
 			Aliases:     []string{"c"},
 			Usage:       "Path to docker config file",
-			Value:       DefaultConfig,
+			Value:       defaultConfig,
 			Destination: &configFlag,
 			EnvVars:     []string{"DOCKER_CONFIG"},
 		},
@@ -83,7 +83,7 @@ func main() {
 			Name:        "socket",
 			Aliases:     []string{"s"},
 			Usage:       "Path to the docker socket file",
-			Value:       DefaultSocket,
+			Value:       defaultSocket,
 			Destination: &socketFlag,
 			EnvVars:     []string{"DOCKER_SOCKET"},
 		},
@@ -92,7 +92,7 @@ func main() {
 			Name:        "set-as-default",
 			Aliases:     []string{"d"},
 			Usage:       "Set nvidia as the default runtime",
-			Value:       DefaultSetAsDefault,
+			Value:       defaultSetAsDefault,
 			Destination: &setAsDefaultFlag,
 			EnvVars:     []string{"DOCKER_SET_AS_DEFAULT"},
 		},
@@ -142,7 +142,7 @@ func Setup(c *cli.Context) error {
 	return nil
 }
 
-// Setup reverts docker configuration to remove the nvidia runtime and reloads it
+// Cleanup reverts docker configuration to remove the nvidia runtime and reloads it
 func Cleanup(c *cli.Context) error {
 	log.Infof("Starting 'cleanup' for %v", c.App.Name)
 
@@ -222,17 +222,17 @@ func LoadConfig() (map[string]interface{}, error) {
 
 // UpdateConfig updates the docker config to include the nvidia runtime
 func UpdateConfig(config map[string]interface{}) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, RuntimeBinary)
+	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
 
 	if setAsDefaultFlag {
-		config["default-runtime"] = RuntimeName
+		config["default-runtime"] = runtimeName
 	}
 
 	runtimes := make(map[string]interface{})
 	if _, exists := config["runtimes"]; exists {
 		runtimes = config["runtimes"].(map[string]interface{})
 	}
-	runtimes[RuntimeName] = map[string]interface{}{"path": runtimePath, "args": []string{}}
+	runtimes[runtimeName] = map[string]interface{}{"path": runtimePath, "args": []string{}}
 
 	config["runtimes"] = runtimes
 	return nil
@@ -241,14 +241,14 @@ func UpdateConfig(config map[string]interface{}) error {
 //RevertConfig reverts the docker config to remove the nvidia runtime
 func RevertConfig(config map[string]interface{}) error {
 	if _, exists := config["default-runtime"]; exists {
-		if config["default-runtime"] == RuntimeName {
-			config["default-runtime"] = DefaultDockerRuntime
+		if config["default-runtime"] == runtimeName {
+			config["default-runtime"] = defaultDockerRuntime
 		}
 	}
 
 	if _, exists := config["runtimes"]; exists {
 		runtimes := config["runtimes"].(map[string]interface{})
-		delete(runtimes, RuntimeName)
+		delete(runtimes, runtimeName)
 
 		if len(runtimes) == 0 {
 			delete(config, "runtimes")
@@ -318,7 +318,7 @@ func SignalDocker() error {
 			return fmt.Errorf("unable to SetsockoptInt on socket fd: %v", err)
 		}
 
-		_, _, err = conn.(*net.UnixConn).WriteMsgUnix([]byte(SocketMessageToGetPID), nil, nil)
+		_, _, err = conn.(*net.UnixConn).WriteMsgUnix([]byte(socketMessageToGetPID), nil, nil)
 		if err != nil {
 			return fmt.Errorf("unable to WriteMsgUnix on socket fd: %v", err)
 		}
@@ -348,21 +348,21 @@ func SignalDocker() error {
 		return nil
 	}
 
-	// Try to send a SIGHUP up to MaxReloadAttempts times
+	// Try to send a SIGHUP up to maxReloadAttempts times
 	var err error
-	for i := 0; i < MaxReloadAttempts; i++ {
+	for i := 0; i < maxReloadAttempts; i++ {
 		err = retriable()
 		if err == nil {
 			break
 		}
-		if i == MaxReloadAttempts-1 {
+		if i == maxReloadAttempts-1 {
 			break
 		}
-		log.Warnf("Error signaling docker, attempt %v/%v: %v", i+1, MaxReloadAttempts, err)
-		time.Sleep(ReloadBackoff)
+		log.Warnf("Error signaling docker, attempt %v/%v: %v", i+1, maxReloadAttempts, err)
+		time.Sleep(reloadBackoff)
 	}
 	if err != nil {
-		log.Warnf("Max retries reached %v/%v, aborting", MaxReloadAttempts, MaxReloadAttempts)
+		log.Warnf("Max retries reached %v/%v, aborting", maxReloadAttempts, maxReloadAttempts)
 		return err
 	}
 

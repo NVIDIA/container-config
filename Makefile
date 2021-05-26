@@ -18,6 +18,7 @@
 
 ##### Global variables #####
 
+CUDA_VERSION ?= 11.3.0
 GOLANG_VERSION ?= 1.16.4
 DOCKER   ?= docker
 ifeq ($(IMAGE),)
@@ -61,17 +62,27 @@ push-latest:
 	$(DOCKER) tag "$(IMAGE):$(VERSION)-$(DEFAULT_PUSH_TARGET)" "$(IMAGE):latest"
 	$(DOCKER) push "$(IMAGE):latest"
 
+
+build-ubuntu%: DOCKERFILE_SUFFIX := ubuntu
+build-ubuntu16.04: BASE_DIST := ubuntu16.04
+build-ubuntu18.04: BASE_DIST := ubuntu18.04
+
+build-ubi8: DOCKERFILE_SUFFIX := ubi8
+build-ubi8: BASE_DIST := ubi8
+
 # Both ubi8 and build-ubi8 trigger a build of the relevant image
 $(TARGETS): %: build-%
 $(BUILD_TARGETS): build-%:
 	$(DOCKER) build --pull \
 		--tag $(IMAGE):$(VERSION)-$(*) \
+		--build-arg BASE_DIST="$(BASE_DIST)" \
+		--build-arg CUDA_VERSION="$(CUDA_VERSION)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg GOLANG_VERSION="$(GOLANG_VERSION)" \
 		--build-arg LIBNVIDIA_CONTAINER_VERSION="$(LIBNVIDIA_CONTAINER_VERSION)" \
-		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
 		--build-arg NVIDIA_CONTAINER_RUNTIME_VERSION="$(NVIDIA_CONTAINER_RUNTIME_VERSION)" \
-		--file docker/Dockerfile.$(*) .
+		--build-arg NVIDIA_CONTAINER_TOOLKIT_VERSION="$(NVIDIA_CONTAINER_TOOLKIT_VERSION)" \
+		--file docker/Dockerfile.$(DOCKERFILE_SUFFIX) .
 
 clean-%:
 	bash $(CURDIR)/test/main.sh clean $(CURDIR)/shared-$(*)
