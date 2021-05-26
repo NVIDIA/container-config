@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	runtimeName   = "nvidia"
-	runtimeBinary = "nvidia-container-runtime"
+	runtimeName               = "nvidia"
+	experimentalRuntimeBinary = "nvidia-container-runtime-experimental"
 
 	defaultConfig       = "/etc/docker/daemon.json"
 	defaultSocket       = "/var/run/docker.sock"
@@ -45,6 +45,11 @@ const (
 	defaultDockerRuntime  = "runc"
 	socketMessageToGetPID = "GET /info HTTP/1.0\r\n\r\n"
 )
+
+var nvidiaRuntimeBinaries = map[string]string{
+	"nvidia":              "nvidia-container-runtime",
+	"nvidia-experimental": "nvidia-container-runtime-experimental",
+}
 
 var runtimeDirnameArg string
 var configFlag string
@@ -237,10 +242,8 @@ func LoadConfig() (map[string]interface{}, error) {
 	return config, nil
 }
 
-// UpdateConfig updates the docker config to include the nvidia runtime
+// UpdateConfig updates the docker config to include the nvidia runtimes
 func UpdateConfig(config map[string]interface{}) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
-
 	if setAsDefaultFlag {
 		config["default-runtime"] = runtimeName
 	}
@@ -249,10 +252,24 @@ func UpdateConfig(config map[string]interface{}) error {
 	if _, exists := config["runtimes"]; exists {
 		runtimes = config["runtimes"].(map[string]interface{})
 	}
-	runtimes[runtimeName] = map[string]interface{}{"path": runtimePath, "args": []string{}}
+
+	for name, rt := range nvidiaRuntimes(runtimeDirnameArg) {
+		runtimes[name] = rt
+	}
 
 	config["runtimes"] = runtimes
 	return nil
+}
+
+func nvidiaRuntimes(binaryRoot string) map[string]interface{} {
+	runtimes := make(map[string]interface{})
+	for r, bin := range nvidiaRuntimeBinaries {
+		runtimes[r] = map[string]interface{}{
+			"path": filepath.Join(binaryRoot, bin),
+			"args": []string{},
+		}
+	}
+	return runtimes
 }
 
 //RevertConfig reverts the docker config to remove the nvidia runtime
@@ -265,7 +282,10 @@ func RevertConfig(config map[string]interface{}) error {
 
 	if _, exists := config["runtimes"]; exists {
 		runtimes := config["runtimes"].(map[string]interface{})
-		delete(runtimes, runtimeName)
+
+		for name := range nvidiaRuntimeBinaries {
+			delete(runtimes, name)
+		}
 
 		if len(runtimes) == 0 {
 			delete(config, "runtimes")
