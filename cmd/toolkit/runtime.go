@@ -17,10 +17,50 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 )
 
+const (
+	nvidiaExperimentalContainerRuntimeSource = "nvidia-container-runtime.experimental"
+)
+
+// installContainerRuntimes sets up the NVIDIA container runtimes, copying the executables
+// and implementing the required wrapper
+func installContainerRuntimes(toolkitDir string) error {
+	r := newNvidiaContainerRuntimeInstaller()
+
+	_, err := r.install(toolkitDir)
+	if err != nil {
+		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
+	}
+
+	er := newNvidiaContainerRuntimeExperimentalInstaller()
+	_, err = er.install(toolkitDir)
+	if err != nil {
+		return fmt.Errorf("error installing experimental NVIDIA Container Runtime: %v", err)
+	}
+
+	return nil
+}
+
 func newNvidiaContainerRuntimeInstaller() *executable {
+	target := executableTarget{
+		dotfileName: "nvidia-container-runtime.real",
+		wrapperName: "nvidia-container-runtime",
+	}
+	return newRuntimeInstaller(nvidiaContainerRuntimeSource, target)
+}
+
+func newNvidiaContainerRuntimeExperimentalInstaller() *executable {
+	target := executableTarget{
+		dotfileName: "nvidia-container-runtime.experimental",
+		wrapperName: "nvidia-container-runtime-experimental",
+	}
+	return newRuntimeInstaller(nvidiaExperimentalContainerRuntimeSource, target)
+}
+
+func newRuntimeInstaller(source string, target executableTarget) *executable {
 	preLines := []string{
 		"",
 		"cat /proc/modules | grep -e \"^nvidia \" >/dev/null 2>&1",
@@ -35,11 +75,8 @@ func newNvidiaContainerRuntimeInstaller() *executable {
 	}
 
 	r := executable{
-		source: nvidiaContainerRuntimeSource,
-		target: executableTarget{
-			dotfileName: "nvidia-container-runtime.real",
-			wrapperName: "nvidia-container-runtime",
-		},
+		source:   source,
+		target:   target,
 		env:      env,
 		preLines: preLines,
 	}

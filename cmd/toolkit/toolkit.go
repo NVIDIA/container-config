@@ -138,7 +138,7 @@ func Install(cli *cli.Context) error {
 		return fmt.Errorf("error installing NVIDIA container library: %v", err)
 	}
 
-	_, err = installContainerRuntime(toolkitDirArg)
+	err = installContainerRuntimes(toolkitDirArg)
 	if err != nil {
 		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
@@ -239,19 +239,6 @@ func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string, nvid
 		return fmt.Errorf("error writing config: %v", err)
 	}
 	return nil
-}
-
-// installContainerRuntime sets up the NVIDIA container runtime, copying the executable
-// and implementing the required wrapper
-func installContainerRuntime(toolkitDir string) (string, error) {
-	r := newNvidiaContainerRuntimeInstaller()
-
-	installedPath, err := r.install(toolkitDir)
-	if err != nil {
-		return "", fmt.Errorf("error installing NVIDIA container runtime: %v", err)
-	}
-
-	return installedPath, nil
 }
 
 // installContainerCLI sets up the NVIDIA container CLI executable, copying the executable
