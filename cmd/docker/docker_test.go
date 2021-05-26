@@ -23,7 +23,6 @@ import (
 )
 
 func TestUpdateConfig(t *testing.T) {
-	runtimeDirnameArg = "/test/runtime/dir"
 	testCases := []struct {
 		config         map[string]interface{}
 		setAsDefault   bool
@@ -162,8 +161,11 @@ func TestUpdateConfig(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		setAsDefaultFlag = tc.setAsDefault
-		err := UpdateConfig(tc.config)
+		options := &options{
+			setAsDefault: tc.setAsDefault,
+			runtimeDir:   "/test/runtime/dir",
+		}
+		err := UpdateConfig(tc.config, options)
 
 		require.NoError(t, err, "%d: %v", i, tc)
 		require.EqualValues(t, tc.expectedConfig, tc.config, "%d: %v", i, tc)
