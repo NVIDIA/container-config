@@ -399,3 +399,170 @@ func TestRevertV1Config(t *testing.T) {
 		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
 	}
 }
+
+func TestUpdateV2Config(t *testing.T) {
+	const runtimeClass = "runtime-class"
+	const runtimeDir = "/test/runtime/dir"
+	runtimeClassFlag = runtimeClass
+	runtimeDirnameArg = runtimeDir
+
+	testCases := []struct {
+		config       map[string]interface{}
+		setAsDefault bool
+		expected     map[string]interface{}
+	}{
+		{
+			config: map[string]interface{}{},
+			expected: map[string]interface{}{
+				"version": int64(2),
+				"plugins": map[string]interface{}{
+					"io.containerd.grpc.v1.cri": map[string]interface{}{
+						"containerd": map[string]interface{}{
+							"runtimes": map[string]interface{}{
+								runtimeClass: map[string]interface{}{
+									"runtime_type":                    "io.containerd.runc.v1",
+									"runtime_root":                    "",
+									"runtime_engine":                  "",
+									"privileged_without_host_devices": false,
+									"options": map[string]interface{}{
+										"BinaryName": "/test/runtime/dir/nvidia-container-runtime",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			config: map[string]interface{}{
+				"plugins": map[string]interface{}{
+					"io.containerd.grpc.v1.cri": map[string]interface{}{
+						"containerd": map[string]interface{}{
+							"runtimes": map[string]interface{}{
+								"runc": map[string]interface{}{
+									"runtime_type":                    "runc_runtime_type",
+									"runtime_root":                    "runc_runtime_root",
+									"runtime_engine":                  "runc_runtime_engine",
+									"privileged_without_host_devices": true,
+									"options": map[string]interface{}{
+										"runc-option": "value",
+										"BinaryName":  "/runc-binary",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]interface{}{
+				"version": int64(2),
+				"plugins": map[string]interface{}{
+					"io.containerd.grpc.v1.cri": map[string]interface{}{
+						"containerd": map[string]interface{}{
+							"runtimes": map[string]interface{}{
+								"runc": map[string]interface{}{
+									"runtime_type":                    "runc_runtime_type",
+									"runtime_root":                    "runc_runtime_root",
+									"runtime_engine":                  "runc_runtime_engine",
+									"privileged_without_host_devices": true,
+									"options": map[string]interface{}{
+										"runc-option": "value",
+										"BinaryName":  "/runc-binary",
+									},
+								},
+								runtimeClass: map[string]interface{}{
+									"runtime_type":                    "runc_runtime_type",
+									"runtime_root":                    "runc_runtime_root",
+									"runtime_engine":                  "runc_runtime_engine",
+									"privileged_without_host_devices": true,
+									"options": map[string]interface{}{
+										"runc-option": "value",
+										"BinaryName":  "/test/runtime/dir/nvidia-container-runtime",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			config:       map[string]interface{}{},
+			setAsDefault: true,
+			expected: map[string]interface{}{
+				"version": int64(2),
+				"plugins": map[string]interface{}{
+					"io.containerd.grpc.v1.cri": map[string]interface{}{
+						"containerd": map[string]interface{}{
+							"runtimes": map[string]interface{}{
+								runtimeClass: map[string]interface{}{
+									"runtime_type":                    "io.containerd.runc.v1",
+									"runtime_root":                    "",
+									"runtime_engine":                  "",
+									"privileged_without_host_devices": false,
+									"options": map[string]interface{}{
+										"BinaryName": "/test/runtime/dir/nvidia-container-runtime",
+									},
+								},
+							},
+							"default_runtime_name": runtimeClass,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		config, err := toml.TreeFromMap(tc.config)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		expected, err := toml.TreeFromMap(tc.expected)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		setAsDefaultFlag = tc.setAsDefault
+		err = UpdateV2Config(config)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		configContents, _ := toml.Marshal(config)
+		expectedContents, _ := toml.Marshal(expected)
+
+		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
+	}
+}
+
+func TestRevertV2Config(t *testing.T) {
+	const runtimeClass = "runtime-class"
+	runtimeClassFlag = runtimeClass
+
+	testCases := []struct {
+		config       map[string]interface{}
+		setAsDefault bool
+		expected     map[string]interface{}
+	}{
+		{},
+		{
+			config: map[string]interface{}{
+				"version": int64(2),
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		config, err := toml.TreeFromMap(tc.config)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		expected, err := toml.TreeFromMap(tc.expected)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		setAsDefaultFlag = tc.setAsDefault
+		err = RevertV2Config(config)
+		require.NoError(t, err, "%d: %v", i, tc)
+
+		configContents, _ := toml.Marshal(config)
+		expectedContents, _ := toml.Marshal(expected)
+
+		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
+	}
+}
