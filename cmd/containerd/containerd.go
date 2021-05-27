@@ -28,11 +28,17 @@ const (
 	defaultSetAsDefault       = true
 	defaultNoSignalContainerd = false
 
+	containerdVersion1dot3 = "v1.3"
+
 	reloadBackoff     = 5 * time.Second
 	maxReloadAttempts = 6
 
 	socketMessageToGetPID = ""
 )
+
+// containerdVersion allows for methods that allow for better readability under version
+// comparisons.
+type containerdVersion string
 
 var runtimeDirnameArg string
 var configFlag string
@@ -143,7 +149,7 @@ func Setup(c *cli.Context) error {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	containerdVersion, err := GetContainerdVersion(c.Context)
+	containerdVersion, err := getContainerdVersion(c.Context)
 	if err != nil {
 		return fmt.Errorf("unable to get containerd version: %v", err)
 	}
@@ -187,7 +193,7 @@ func Cleanup(c *cli.Context) error {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	containerdVersion, err := GetContainerdVersion(c.Context)
+	containerdVersion, err := getContainerdVersion(c.Context)
 	if err != nil {
 		return fmt.Errorf("unable to get containerd version: %v", err)
 	}
@@ -257,13 +263,12 @@ func LoadConfig() (*toml.Tree, error) {
 }
 
 // ParseVersion parses the version field out of the containerd config
-func ParseVersion(config *toml.Tree, containerdVersion string) (int, error) {
+func ParseVersion(config *toml.Tree, containerdVersion containerdVersion) (int, error) {
 	var defaultVersion int
-	switch semver.Compare(containerdVersion, "v1.3") {
-	case -1:
-		defaultVersion = 1
-	default:
+	if containerdVersion.atLeast(containerdVersion1dot3) {
 		defaultVersion = 2
+	} else {
+		defaultVersion = 1
 	}
 
 	var version int
@@ -286,7 +291,7 @@ func ParseVersion(config *toml.Tree, containerdVersion string) (int, error) {
 }
 
 // UpdateConfig updates the containerd config to include the nvidia-container-runtime
-func UpdateConfig(config *toml.Tree, version int, containerdVersion string) error {
+func UpdateConfig(config *toml.Tree, version int, containerdVersion containerdVersion) error {
 	var err error
 
 	log.Infof("Updating config")
@@ -328,7 +333,7 @@ func RevertConfig(config *toml.Tree, version int) error {
 }
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
-func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
+func UpdateV1Config(config *toml.Tree, containerdVersion containerdVersion) error {
 	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
 
 	// We ensure that the version is set to 1. This handles the case where the config was empty and
@@ -397,7 +402,7 @@ func UpdateV1Config(config *toml.Tree, containerdVersion string) error {
 			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
 		}
 		config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
-		if semver.Compare(containerdVersion, "1.3") >= 0 {
+		if containerdVersion.atLeast(containerdVersion1dot3) {
 			config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
 		}
 	}
@@ -704,8 +709,8 @@ func SignalContainerd() error {
 	return nil
 }
 
-// GetContainerdVersion returns the version of containerd running
-func GetContainerdVersion(ctx context.Context) (string, error) {
+// getContainerdVersion returns the version of containerd running
+func getContainerdVersion(ctx context.Context) (containerdVersion, error) {
 	client, err := containerd.New(socketFlag)
 	if err != nil {
 		return "", err
@@ -717,7 +722,28 @@ func GetContainerdVersion(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	log.Infof("Containerd version is %s", version.Version)
+	containerdVersion, err := newContainerdVersion(version.Version)
+	if err != nil {
+		return "", fmt.Errorf("error retrieving containerd version: %v", containerdVersion)
+	}
 
-	return version.Version, nil
+	log.Infof("Containerd version is %v", containerdVersion)
+	return containerdVersion, nil
+}
+
+// newContainerdVersion creates a containerdVersion from the specified version string.
+func newContainerdVersion(version string) (containerdVersion, error) {
+	if semver.IsValid(version) {
+		return containerdVersion(version), nil
+	}
+
+	if version != "" && version[0] != 'v' && semver.IsValid("v"+version) {
+		return containerdVersion("v" + version), nil
+	}
+
+	return "", fmt.Errorf("%v is an invalid semantic version", version)
+}
+
+func (v containerdVersion) atLeast(version string) bool {
+	return semver.Compare(string(v), version) >= 0
 }
