@@ -22,8 +22,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -379,269 +377,26 @@ func RevertConfig(config *toml.Tree, o *options, version int) error {
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
 func UpdateV1Config(config *toml.Tree, o *options, containerdVersion containerdVersion) error {
-	runtimePath := filepath.Join(o.runtimeDir, runtimeBinary)
-
-	// We ensure that the version is set to 1. This handles the case where the config was empty and
-	// the config version was determined from the containerd version.
-	config.Set("version", int64(1))
-
-	runcPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		"runc",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-	runtimeClassOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-		"options",
-	}
-	defaultRuntimePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-	}
-	defaultRuntimeOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-		"options",
-	}
-	defaultRuntimeNamePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime_name",
-	}
-
-	switch runc := config.GetPath(runcPath).(type) {
-	case *toml.Tree:
-		runc, _ = toml.Load(runc.String())
-		config.SetPath(runtimeClassPath, runc)
-	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), o.runtimeType)
-		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
-		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
-		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(runtimeClassOptionsPath, "Runtime"), runtimePath)
-
-	if !o.setAsDefault {
-		return nil
-	}
-
-	if containerdVersion.atLeast(containerdVersion1dot3) {
-		config.SetPath(defaultRuntimeNamePath, o.runtimeClass)
-		if config.GetPath(defaultRuntimePath) != nil {
-			log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
-		}
-		return nil
-	}
-
-	log.Warnf("Support for containerd version %v is deprecated", containerdVersion1dot3)
-	if config.GetPath(defaultRuntimePath) == nil {
-		config.SetPath(append(defaultRuntimePath, "runtime_type"), o.runtimeType)
-		config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
-		config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
-		config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
-
-	return nil
+	c := newConfigV1(config, containerdVersion)
+	return c.Update(o)
 }
 
 // RevertV1Config performs a revert specific to v1 of the containerd config
 func RevertV1Config(config *toml.Tree, o *options) error {
-	runtimeClassPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-	defaultRuntimePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-	}
-	defaultRuntimeOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-		"options",
-	}
-	defaultRuntimeNamePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime_name",
-	}
-
-	config.DeletePath(runtimeClassPath)
-	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
-		if runtimeBinary == path.Base(runtime) {
-			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
-		}
-	}
-
-	if defaultRuntimeName, ok := config.GetPath(defaultRuntimeNamePath).(string); ok {
-		if o.runtimeClass == defaultRuntimeName {
-			config.DeletePath(defaultRuntimeNamePath)
-		}
-	}
-
-	for i := 0; i < len(runtimeClassPath); i++ {
-		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
-			}
-		}
-	}
-
-	if options, ok := config.GetPath(defaultRuntimeOptionsPath).(*toml.Tree); ok {
-		if len(options.Keys()) == 0 {
-			config.DeletePath(defaultRuntimeOptionsPath)
-		}
-	}
-
-	if runtime, ok := config.GetPath(defaultRuntimePath).(*toml.Tree); ok {
-		fields := []string{"runtime_type", "runtime_root", "runtime_engine", "privileged_without_host_devices"}
-		if len(runtime.Keys()) <= len(fields) {
-			matches := []string{}
-			for _, f := range fields {
-				e := runtime.Get(f)
-				if e != nil {
-					matches = append(matches, f)
-				}
-			}
-			if len(matches) == len(runtime.Keys()) {
-				for _, m := range matches {
-					runtime.Delete(m)
-				}
-			}
-		}
-	}
-
-	for i := 0; i < len(defaultRuntimePath); i++ {
-		if runtimes, ok := config.GetPath(defaultRuntimePath[:len(defaultRuntimePath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(defaultRuntimePath[:len(defaultRuntimePath)-i])
-			}
-		}
-	}
-
-	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
-		config.Delete("version")
-	}
-
-	return nil
+	c := newConfigV1(config, "")
+	return c.Revert(o)
 }
 
 // UpdateV2Config performs an update specific to v2 of the containerd config
 func UpdateV2Config(config *toml.Tree, o *options) error {
-	runtimePath := filepath.Join(o.runtimeDir, runtimeBinary)
-
-	// We ensure that the version is set to 2. This handles the case where the config was empty and
-	// the config version was determined from the containerd version.
-	config.Set("version", int64(2))
-
-	containerdPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-	}
-	runcPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		"runc",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-	runtimeClassOptionsPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-		"options",
-	}
-
-	switch runc := config.GetPath(runcPath).(type) {
-	case *toml.Tree:
-		runc, _ = toml.Load(runc.String())
-		config.SetPath(runtimeClassPath, runc)
-	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), o.runtimeType)
-		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
-		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
-		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(runtimeClassOptionsPath, "BinaryName"), runtimePath)
-
-	if o.setAsDefault {
-		config.SetPath(append(containerdPath, "default_runtime_name"), o.runtimeClass)
-	}
-
-	return nil
+	c := newConfigV2(config)
+	return c.Update(o)
 }
 
 // RevertV2Config performs a revert specific to v2 of the containerd config
 func RevertV2Config(config *toml.Tree, o *options) error {
-	containerdPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-
-	config.DeletePath(runtimeClassPath)
-	if runtime, ok := config.GetPath(append(containerdPath, "default_runtime_name")).(string); ok {
-		if o.runtimeClass == runtime {
-			config.DeletePath(append(containerdPath, "default_runtime_name"))
-		}
-	}
-
-	for i := 0; i < len(runtimeClassPath); i++ {
-		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
-			}
-		}
-	}
-
-	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
-		config.Delete("version")
-	}
-
-	return nil
+	c := newConfigV2(config)
+	return c.Revert(o)
 }
 
 // FlushConfig flushes the updated/reverted config out to disk
