@@ -24,7 +24,7 @@ testing::toolkit::install() {
 	fi
 
 	testing::docker_run::toolkit::shell 'toolkit install /usr/local/nvidia/toolkit'
-	docker run -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
+	docker run --rm -v "${shared_dir}:/work" alpine sh -c "chown -R ${uid}:${gid} /work/"
 
 	# Ensure toolkit dir is correctly setup
 	test ! -z "$(ls -A "${shared_dir}/usr/local/nvidia/toolkit")"
