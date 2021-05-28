@@ -24,9 +24,6 @@ import (
 )
 
 func TestV1ConfigSetDefaultRuntime(t *testing.T) {
-	setAsDefaultFlag = true
-	runtimeClassFlag = "runtime-class"
-
 	testCases := []struct {
 		containerdVersion      containerdVersion
 		expectedDefaultRuntime string
@@ -46,10 +43,13 @@ func TestV1ConfigSetDefaultRuntime(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-
+		o := options{
+			setAsDefault: true,
+			runtimeClass: "runtime-class",
+		}
 		config, _ := toml.TreeFromMap(map[string]interface{}{})
 
-		err := UpdateV1Config(config, tc.containerdVersion)
+		err := UpdateV1Config(config, &o, tc.containerdVersion)
 		require.NoError(t, err)
 
 		value := config.Get("plugins.cri.containerd.default_runtime_name")
@@ -136,10 +136,8 @@ func TestNewContainerdVersion(t *testing.T) {
 
 func TestUpdateV1Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
+	const runtimeType = "runtime_type"
 	const runtimeDir = "/test/runtime/dir"
-	runtimeClassFlag = runtimeClass
-	runtimeTypeFlag = "runtime_type"
-	runtimeDirnameArg = runtimeDir
 
 	testCases := []struct {
 		config            map[string]interface{}
@@ -286,14 +284,20 @@ func TestUpdateV1Config(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
+		o := &options{
+			runtimeClass: runtimeClass,
+			runtimeType:  runtimeType,
+			setAsDefault: tc.setAsDefault,
+			runtimeDir:   runtimeDir,
+		}
+
 		config, err := toml.TreeFromMap(tc.config)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		expected, err := toml.TreeFromMap(tc.expected)
 		require.NoError(t, err, "%d: %v", i, tc)
 
-		setAsDefaultFlag = tc.setAsDefault
-		err = UpdateV1Config(config, tc.containerdVersion)
+		err = UpdateV1Config(config, o, tc.containerdVersion)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		configContents, _ := toml.Marshal(config)
@@ -306,8 +310,7 @@ func TestUpdateV1Config(t *testing.T) {
 
 func TestRevertV1Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
-	runtimeClassFlag = runtimeClass
-	runtimeTypeFlag = "runtime_type"
+	const runtimeType = "runtime_type"
 
 	testCases := []struct {
 		config map[string]interface {
@@ -377,13 +380,18 @@ func TestRevertV1Config(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
+		o := &options{
+			runtimeClass: runtimeClass,
+			runtimeType:  runtimeType,
+		}
+
 		config, err := toml.TreeFromMap(tc.config)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		expected, err := toml.TreeFromMap(tc.expected)
 		require.NoError(t, err, "%d: %v", i, tc)
 
-		err = RevertV1Config(config)
+		err = RevertV1Config(config, o)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		configContents, _ := toml.Marshal(config)
@@ -395,10 +403,8 @@ func TestRevertV1Config(t *testing.T) {
 
 func TestUpdateV2Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
+	const runtimeType = "runtime_type"
 	const runtimeDir = "/test/runtime/dir"
-	runtimeClassFlag = runtimeClass
-	runtimeTypeFlag = "runtime_type"
-	runtimeDirnameArg = runtimeDir
 
 	testCases := []struct {
 		config       map[string]interface{}
@@ -509,14 +515,20 @@ func TestUpdateV2Config(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
+		o := &options{
+			runtimeClass: runtimeClass,
+			runtimeType:  runtimeType,
+			setAsDefault: tc.setAsDefault,
+			runtimeDir:   runtimeDir,
+		}
+
 		config, err := toml.TreeFromMap(tc.config)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		expected, err := toml.TreeFromMap(tc.expected)
 		require.NoError(t, err, "%d: %v", i, tc)
 
-		setAsDefaultFlag = tc.setAsDefault
-		err = UpdateV2Config(config)
+		err = UpdateV2Config(config, o)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		configContents, _ := toml.Marshal(config)
@@ -528,7 +540,6 @@ func TestUpdateV2Config(t *testing.T) {
 
 func TestRevertV2Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
-	runtimeClassFlag = runtimeClass
 
 	testCases := []struct {
 		config       map[string]interface{}
@@ -544,14 +555,18 @@ func TestRevertV2Config(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
+		o := &options{
+			runtimeClass: runtimeClass,
+			setAsDefault: tc.setAsDefault,
+		}
+
 		config, err := toml.TreeFromMap(tc.config)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		expected, err := toml.TreeFromMap(tc.expected)
 		require.NoError(t, err, "%d: %v", i, tc)
 
-		setAsDefaultFlag = tc.setAsDefault
-		err = RevertV2Config(config)
+		err = RevertV2Config(config, o)
 		require.NoError(t, err, "%d: %v", i, tc)
 
 		configContents, _ := toml.Marshal(config)
