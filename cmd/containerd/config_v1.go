@@ -26,13 +26,18 @@ import (
 
 // configV1 represents a V1 containerd config
 type configV1 struct {
-	*toml.Tree
+	config
 	containerdVersion containerdVersion
 }
 
 func newConfigV1(cfg *toml.Tree, containerdVersion containerdVersion) UpdateReverter {
 	c := configV1{
-		Tree:              cfg,
+		config: config{
+			Tree:      cfg,
+			version:   1,
+			cri:       "cri",
+			binaryKey: "Runtime",
+		},
 		containerdVersion: containerdVersion,
 	}
 
@@ -41,72 +46,19 @@ func newConfigV1(cfg *toml.Tree, containerdVersion containerdVersion) UpdateReve
 
 // Update performs an update specific to v1 of the containerd config
 func (config *configV1) Update(o *options) error {
+	// For v1 config, the `default_runtime_name` setting is only supported
+	// for containerd version at least v1.3
+	setAsDefault := o.setAsDefault && config.containerdVersion.atLeast(containerdVersion1dot3)
+
 	runtimePath := filepath.Join(o.runtimeDir, runtimeBinary)
-
-	// We ensure that the version is set to 1. This handles the case where the config was empty and
-	// the config version was determined from the containerd version.
-	config.Set("version", int64(1))
-
-	runcPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		"runc",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-	runtimeClassOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-		"options",
-	}
-	defaultRuntimePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-	}
-	defaultRuntimeOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-		"options",
-	}
-	defaultRuntimeNamePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime_name",
-	}
-
-	switch runc := config.GetPath(runcPath).(type) {
-	case *toml.Tree:
-		runc, _ = toml.Load(runc.String())
-		config.SetPath(runtimeClassPath, runc)
-	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), o.runtimeType)
-		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
-		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
-		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(runtimeClassOptionsPath, "Runtime"), runtimePath)
+	config.update(o.runtimeClass, o.runtimeType, runtimePath, setAsDefault)
 
 	if !o.setAsDefault {
 		return nil
 	}
 
 	if config.containerdVersion.atLeast(containerdVersion1dot3) {
-		config.SetPath(defaultRuntimeNamePath, o.runtimeClass)
+		defaultRuntimePath := append(config.containerdPath(), "default_runtime")
 		if config.GetPath(defaultRuntimePath) != nil {
 			log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
 		}
@@ -114,13 +66,8 @@ func (config *configV1) Update(o *options) error {
 	}
 
 	log.Warnf("Support for containerd version %v is deprecated", containerdVersion1dot3)
-	if config.GetPath(defaultRuntimePath) == nil {
-		config.SetPath(append(defaultRuntimePath, "runtime_type"), o.runtimeType)
-		config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
-		config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
-		config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
+	defaultRuntimePath := append(config.containerdPath(), "default_runtime")
+	config.initRuntime(defaultRuntimePath, o.runtimeType, runtimePath)
 
 	return nil
 }

@@ -24,13 +24,18 @@ import (
 
 // configV2 represents a V2 containerd config
 type configV2 struct {
-	*toml.Tree
+	config
 	containerdVersion string
 }
 
 func newConfigV2(cfg *toml.Tree) UpdateReverter {
 	c := configV2{
-		Tree: cfg,
+		config: config{
+			Tree:      cfg,
+			version:   2,
+			cri:       "io.containerd.grpc.v1.cri",
+			binaryKey: "BinaryName",
+		},
 	}
 
 	return &c
@@ -38,55 +43,10 @@ func newConfigV2(cfg *toml.Tree) UpdateReverter {
 
 // Update performs an update specific to v2 of the containerd config
 func (config *configV2) Update(o *options) error {
+	setAsDefault := o.setAsDefault
+
 	runtimePath := filepath.Join(o.runtimeDir, runtimeBinary)
-
-	// We ensure that the version is set to 2. This handles the case where the config was empty and
-	// the config version was determined from the containerd version.
-	config.Set("version", int64(2))
-
-	containerdPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-	}
-	runcPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		"runc",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-	runtimeClassOptionsPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-		"options",
-	}
-
-	switch runc := config.GetPath(runcPath).(type) {
-	case *toml.Tree:
-		runc, _ = toml.Load(runc.String())
-		config.SetPath(runtimeClassPath, runc)
-	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), o.runtimeType)
-		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
-		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
-		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(runtimeClassOptionsPath, "BinaryName"), runtimePath)
-
-	if o.setAsDefault {
-		config.SetPath(append(containerdPath, "default_runtime_name"), o.runtimeClass)
-	}
+	config.update(o.runtimeClass, o.runtimeType, runtimePath, setAsDefault)
 
 	return nil
 }
