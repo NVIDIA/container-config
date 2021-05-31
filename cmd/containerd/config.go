@@ -56,6 +56,31 @@ func (config *config) update(runtimeClass string, runtimeType string, runtimeBin
 	}
 }
 
+// revert removes the configuration applied in an update call.
+func (config *config) revert(runtimeClass string) {
+	runtimeClassPath := config.runtimeClassPath(runtimeClass)
+	defaultRuntimeNamePath := config.defaultRuntimeNamePath()
+
+	config.DeletePath(runtimeClassPath)
+	if runtime, ok := config.GetPath(defaultRuntimeNamePath).(string); ok {
+		if runtimeClass == runtime {
+			config.DeletePath(defaultRuntimeNamePath)
+		}
+	}
+
+	for i := 0; i < len(runtimeClassPath); i++ {
+		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
+			if len(runtimes.Keys()) == 0 {
+				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
+			}
+		}
+	}
+
+	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
+		config.Delete("version")
+	}
+}
+
 // initRuntime creates a runtime config if it does not exist and ensures that the
 // runtimes binary path is specified.
 func (config *config) initRuntime(path []string, runtimeType string, binary string) {

@@ -74,51 +74,11 @@ func (config *configV1) Update(o *options) error {
 
 // Revert performs a revert specific to v1 of the containerd config
 func (config *configV1) Revert(o *options) error {
-	runtimeClassPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-	defaultRuntimePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-	}
-	defaultRuntimeOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-		"options",
-	}
-	defaultRuntimeNamePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime_name",
-	}
-
-	config.DeletePath(runtimeClassPath)
+	defaultRuntimePath := append(config.containerdPath(), "default_runtime")
+	defaultRuntimeOptionsPath := append(defaultRuntimePath, "options")
 	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
 		if runtimeBinary == path.Base(runtime) {
 			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
-		}
-	}
-
-	if defaultRuntimeName, ok := config.GetPath(defaultRuntimeNamePath).(string); ok {
-		if o.runtimeClass == defaultRuntimeName {
-			config.DeletePath(defaultRuntimeNamePath)
-		}
-	}
-
-	for i := 0; i < len(runtimeClassPath); i++ {
-		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
-			}
 		}
 	}
 
@@ -154,9 +114,7 @@ func (config *configV1) Revert(o *options) error {
 		}
 	}
 
-	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
-		config.Delete("version")
-	}
+	config.revert(o.runtimeClass)
 
 	return nil
 }

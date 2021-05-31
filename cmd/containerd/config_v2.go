@@ -53,37 +53,7 @@ func (config *configV2) Update(o *options) error {
 
 // Revert performs a revert specific to v2 of the containerd config
 func (config *configV2) Revert(o *options) error {
-	containerdPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		o.runtimeClass,
-	}
-
-	config.DeletePath(runtimeClassPath)
-	if runtime, ok := config.GetPath(append(containerdPath, "default_runtime_name")).(string); ok {
-		if o.runtimeClass == runtime {
-			config.DeletePath(append(containerdPath, "default_runtime_name"))
-		}
-	}
-
-	for i := 0; i < len(runtimeClassPath); i++ {
-		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
-			}
-		}
-	}
-
-	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
-		config.Delete("version")
-	}
+	config.revert(o.runtimeClass)
 
 	return nil
 }
