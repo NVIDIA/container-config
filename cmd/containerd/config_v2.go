@@ -17,8 +17,6 @@
 package main
 
 import (
-	"path/filepath"
-
 	"github.com/pelletier/go-toml"
 )
 
@@ -43,17 +41,20 @@ func newConfigV2(cfg *toml.Tree) UpdateReverter {
 
 // Update performs an update specific to v2 of the containerd config
 func (config *configV2) Update(o *options) error {
-	setAsDefault := o.setAsDefault
-
-	runtimePath := filepath.Join(o.runtimeDir, runtimeBinary)
-	config.update(o.runtimeClass, o.runtimeType, runtimePath, setAsDefault)
+	defaultRuntime := o.getDefaultRuntime()
+	for runtimeClass, runtimeBinary := range o.getRuntimeBinaries() {
+		setAsDefault := defaultRuntime == runtimeClass
+		config.update(runtimeClass, o.runtimeType, runtimeBinary, setAsDefault)
+	}
 
 	return nil
 }
 
 // Revert performs a revert specific to v2 of the containerd config
 func (config *configV2) Revert(o *options) error {
-	config.revert(o.runtimeClass)
+	for runtimeClass := range o.getRuntimeBinaries() {
+		config.revert(runtimeClass)
+	}
 
 	return nil
 }

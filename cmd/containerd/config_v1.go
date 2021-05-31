@@ -18,7 +18,6 @@ package main
 
 import (
 	"path"
-	"path/filepath"
 
 	"github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
@@ -48,27 +47,30 @@ func newConfigV1(cfg *toml.Tree, containerdVersion containerdVersion) UpdateReve
 func (config *configV1) Update(o *options) error {
 	// For v1 config, the `default_runtime_name` setting is only supported
 	// for containerd version at least v1.3
-	setAsDefault := o.setAsDefault && config.containerdVersion.atLeast(containerdVersion1dot3)
+	supportsDefaultRuntimeName := config.containerdVersion.atLeast(containerdVersion1dot3)
 
-	runtimePath := filepath.Join(o.runtimeDir, runtimeBinary)
-	config.update(o.runtimeClass, o.runtimeType, runtimePath, setAsDefault)
+	defaultRuntime := o.getDefaultRuntime()
 
-	if !o.setAsDefault {
-		return nil
-	}
+	for runtimeClass, runtimeBinary := range o.getRuntimeBinaries() {
+		isDefaultRuntime := runtimeClass == defaultRuntime
+		config.update(runtimeClass, o.runtimeType, runtimeBinary, isDefaultRuntime && supportsDefaultRuntimeName)
 
-	if config.containerdVersion.atLeast(containerdVersion1dot3) {
-		defaultRuntimePath := append(config.containerdPath(), "default_runtime")
-		if config.GetPath(defaultRuntimePath) != nil {
-			log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
+		if !isDefaultRuntime {
+			continue
 		}
-		return nil
+
+		if supportsDefaultRuntimeName {
+			defaultRuntimePath := append(config.containerdPath(), "default_runtime")
+			if config.GetPath(defaultRuntimePath) != nil {
+				log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
+			}
+			continue
+		}
+
+		log.Warnf("Support for containerd version %v is deprecated", config.containerdVersion)
+		defaultRuntimePath := append(config.containerdPath(), "default_runtime")
+		config.initRuntime(defaultRuntimePath, o.runtimeType, runtimeBinary)
 	}
-
-	log.Warnf("Support for containerd version %v is deprecated", containerdVersion1dot3)
-	defaultRuntimePath := append(config.containerdPath(), "default_runtime")
-	config.initRuntime(defaultRuntimePath, o.runtimeType, runtimePath)
-
 	return nil
 }
 
@@ -77,8 +79,11 @@ func (config *configV1) Revert(o *options) error {
 	defaultRuntimePath := append(config.containerdPath(), "default_runtime")
 	defaultRuntimeOptionsPath := append(defaultRuntimePath, "options")
 	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
-		if runtimeBinary == path.Base(runtime) {
-			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
+		for _, runtimeBinary := range o.getRuntimeBinaries() {
+			if path.Base(runtimeBinary) == path.Base(runtime) {
+				config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
+				break
+			}
 		}
 	}
 
@@ -114,7 +119,9 @@ func (config *configV1) Revert(o *options) error {
 		}
 	}
 
-	config.revert(o.runtimeClass)
+	for runtimeClass := range nvidiaRuntimeBinaries {
+		config.revert(runtimeClass)
+	}
 
 	return nil
 }

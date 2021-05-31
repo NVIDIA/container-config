@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -38,7 +39,10 @@ const (
 	restartModeSystemd = "systemd"
 	restartModeNone    = "NONE"
 
-	runtimeBinary = "nvidia-container-runtime"
+	nvidiaRuntimeName               = "nvidia"
+	nvidiaRuntimeBinary             = "nvidia-container-runtime"
+	nvidiaExperimentalRuntimeName   = "nvidia-experimental"
+	nvidiaExperimentalRuntimeBinary = "nvidia-container-runtime-experimental"
 
 	defaultConfig        = "/etc/containerd/config.toml"
 	defaultSocket        = "/run/containerd/containerd.sock"
@@ -59,6 +63,12 @@ const (
 // containerdVersion allows for methods that allow for better readability under version
 // comparisons.
 type containerdVersion string
+
+// nvidiaRuntimeBinaries defines a map of runtime names to binary names
+var nvidiaRuntimeBinaries = map[string]string{
+	nvidiaRuntimeName:             nvidiaRuntimeBinary,
+	nvidiaExperimentalRuntimeName: nvidiaExperimentalRuntimeBinary,
+}
 
 // options stores the configuration from the command line or environment variables
 type options struct {
@@ -588,4 +598,37 @@ func newContainerdVersion(version string) (containerdVersion, error) {
 
 func (v containerdVersion) atLeast(version string) bool {
 	return semver.Compare(string(v), version) >= 0
+}
+
+// getDefaultRuntime returns the default runtime for the configured options.
+// If the configuration is invalid or the default runtimes should not be set
+// the empty string is returned.
+func (o options) getDefaultRuntime() string {
+	if o.setAsDefault {
+		if o.runtimeClass == nvidiaExperimentalRuntimeName {
+			return nvidiaExperimentalRuntimeName
+		}
+		if o.runtimeClass == "" {
+			return defaultRuntimeClass
+		}
+		return o.runtimeClass
+	}
+	return ""
+}
+
+// getRuntimeBinaries returns a map of runtime names to binary paths. This includes the
+// renaming of the `nvidia` runtime as per the --runtime-class command line flag.
+func (o options) getRuntimeBinaries() map[string]string {
+	runtimeBinaries := make(map[string]string)
+
+	for rt, bin := range nvidiaRuntimeBinaries {
+		runtime := rt
+		if o.runtimeClass != "" && o.runtimeClass != nvidiaExperimentalRuntimeName && runtime == defaultRuntimeClass {
+			runtime = o.runtimeClass
+		}
+
+		runtimeBinaries[runtime] = filepath.Join(o.runtimeDir, bin)
+	}
+
+	return runtimeBinaries
 }
