@@ -20,7 +20,6 @@ const (
 	toolkitCommand = "toolkit"
 	toolkitSubDir  = "toolkit"
 
-	defaultNoDaemon    = false
 	defaultToolkitArgs = ""
 	defaultRuntime     = "docker"
 	defaultRuntimeArgs = ""
@@ -53,7 +52,6 @@ func main() {
 			Name:        "no-daemon",
 			Aliases:     []string{"n"},
 			Usage:       "terminate immediatly after setting up the runtime. Note that no cleanup will be performed",
-			Value:       defaultNoDaemon,
 			Destination: &noDaemonFlag,
 			EnvVars:     []string{"NO_DAEMON"},
 		},
