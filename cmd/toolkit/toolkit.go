@@ -138,7 +138,7 @@ func Install(cli *cli.Context) error {
 		return fmt.Errorf("error installing NVIDIA container library: %v", err)
 	}
 
-	_, err = installContainerRuntime(toolkitDirArg)
+	err = installContainerRuntimes(toolkitDirArg)
 	if err != nil {
 		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
@@ -241,30 +241,6 @@ func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string, nvid
 	return nil
 }
 
-// installContainerRuntime sets up the NVIDIA container runtime, copying the executable
-// and implementing the required wrapper
-func installContainerRuntime(toolkitDir string) (string, error) {
-	log.Infof("Installing NVIDIA container runtime from '%v'", nvidiaContainerRuntimeSource)
-
-	preLines := []string{
-		"",
-		"cat /proc/modules | grep -e \"^nvidia \" >/dev/null 2>&1",
-		"if [ \"${?}\" != \"0\" ]; then",
-		"	echo \"nvidia driver modules are not yet loaded, invoking runc directly\"",
-		"	exec runc \"$@\"",
-		"fi",
-		"",
-	}
-	env := map[string]string{
-		"XDG_CONFIG_HOME": filepath.Join(toolkitDir, ".config"),
-	}
-	installedPath, err := installExecutable(toolkitDir, nvidiaContainerRuntimeSource, env, preLines, nil)
-	if err != nil {
-		return "", fmt.Errorf("error installing NVIDIA container runtime: %v", err)
-	}
-	return installedPath, nil
-}
-
 // installContainerCLI sets up the NVIDIA container CLI executable, copying the executable
 // and implementing the required wrapper
 func installContainerCLI(toolkitDir string) (string, error) {
@@ -273,7 +249,17 @@ func installContainerCLI(toolkitDir string) (string, error) {
 	env := map[string]string{
 		"LD_LIBRARY_PATH": toolkitDir,
 	}
-	installedPath, err := installExecutable(toolkitDir, nvidiaContainerCliSource, env, nil, nil)
+
+	e := executable{
+		source: nvidiaContainerCliSource,
+		target: executableTarget{
+			dotfileName: "nvidia-container-cli.real",
+			wrapperName: "nvidia-container-cli",
+		},
+		env: env,
+	}
+
+	installedPath, err := e.install(toolkitDir)
 	if err != nil {
 		return "", fmt.Errorf("error installing NVIDIA container CLI: %v", err)
 	}
@@ -285,11 +271,20 @@ func installContainerCLI(toolkitDir string) (string, error) {
 func installRuntimeHook(toolkitDir string, configFilePath string) (string, error) {
 	log.Infof("Installing NVIDIA container runtime hook from '%v'", nvidiaContainerRuntimeHookSource)
 
-	env := map[string]string{}
 	argLines := []string{
 		fmt.Sprintf("-config \"%s\"", configFilePath),
 	}
-	installedPath, err := installExecutable(toolkitDir, nvidiaContainerRuntimeHookSource, env, nil, argLines)
+
+	e := executable{
+		source: nvidiaContainerRuntimeHookSource,
+		target: executableTarget{
+			dotfileName: "nvidia-container-toolkit.real",
+			wrapperName: "nvidia-container-toolkit",
+		},
+		argLines: argLines,
+	}
+
+	installedPath, err := e.install(toolkitDir)
 	if err != nil {
 		return "", fmt.Errorf("error installing NVIDIA container runtime hook: %v", err)
 	}
@@ -300,75 +295,6 @@ func installRuntimeHook(toolkitDir string, configFilePath string) (string, error
 	}
 
 	return installedPath, nil
-}
-
-// installExecutable installs an executable component of the NVIDIA container toolkit. The source executable
-// is copied to a `.real` file and a wapper is created to set up the environment as required.
-func installExecutable(toolkitDir string, sourceExecutable string, env map[string]string, preLines []string, argLines []string) (string, error) {
-	log.Infof("Installing executable '%v'", sourceExecutable)
-
-	dotRealFilename, err := installDotRealFile(toolkitDir, sourceExecutable)
-	if err != nil {
-		return "", fmt.Errorf("error installing .real file: %v", err)
-	}
-	log.Infof("Created '%v'", dotRealFilename)
-
-	wrapperFilename, err := wrapExecutable(toolkitDir, sourceExecutable, dotRealFilename, env, preLines, argLines)
-	if err != nil {
-		return "", fmt.Errorf("error wrapping '%v': %v", dotRealFilename, err)
-	}
-	log.Infof("Created wrapper '%v'", wrapperFilename)
-
-	return wrapperFilename, nil
-}
-
-func installDotRealFile(destFolder string, sourceExecutable string) (string, error) {
-	executableDotReal := filepath.Base(sourceExecutable) + ".real"
-	return installFileToFolderWithName(destFolder, executableDotReal, sourceExecutable)
-}
-
-func wrapExecutable(destFolder, executable string, dotRealFilename string, env map[string]string, preLines []string, argLines []string) (string, error) {
-	wrapperPath := getInstalledPath(destFolder, executable)
-	wrapper, err := os.Create(wrapperPath)
-	if err != nil {
-		return "", fmt.Errorf("error creating executable wrapper: %v", err)
-	}
-	defer wrapper.Close()
-
-	// Add the shebang
-	fmt.Fprintln(wrapper, "#! /bin/sh")
-
-	// Add the preceding lines if any
-	for _, line := range preLines {
-		fmt.Fprintf(wrapper, "%s\n", line)
-	}
-
-	// Update the path to include the destination folder
-	path, specified := env["PATH"]
-	if !specified {
-		path = "$PATH"
-	}
-	env["PATH"] = strings.Join([]string{destFolder, path}, ":")
-
-	for e, v := range env {
-		fmt.Fprintf(wrapper, "%s=%s \\\n", e, v)
-	}
-	// Add the call to the target executable
-	fmt.Fprintf(wrapper, "%s \\\n", dotRealFilename)
-
-	// Insert additional lines in the `arg` list
-	for _, line := range argLines {
-		fmt.Fprintf(wrapper, "\t%s \\\n", line)
-	}
-	// Add the script arguments "$@"
-	fmt.Fprintln(wrapper, "\t\"$@\"")
-
-	err = ensureExecutable(wrapperPath)
-	if err != nil {
-		return "", fmt.Errorf("error making wrapper executable: %v", err)
-	}
-
-	return wrapperPath, nil
 }
 
 // installSymlink creates a symlink in the toolkitDirectory that points to the specified target.
@@ -459,27 +385,6 @@ func resolveLink(l string) (string, error) {
 		log.Infof("Resolved link: '%v' => '%v'", l, resolved)
 	}
 	return resolved, nil
-}
-
-// getInstalledPath returns the path when file src is installed the specified
-// folder.
-func getInstalledPath(destFolder string, src string) string {
-	filename := filepath.Base(src)
-	return filepath.Join(destFolder, filename)
-}
-
-// ensureExecutable is equivalent to running chmod +x on the specified file
-func ensureExecutable(path string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("error getting file info for '%v': %v", path, err)
-	}
-	executableMode := info.Mode() | 0111
-	err = os.Chmod(path, executableMode)
-	if err != nil {
-		return fmt.Errorf("error setting executable mode for '%v': %v", path, err)
-	}
-	return nil
 }
 
 func createDirectories(dir ...string) error {

@@ -43,6 +43,9 @@ testing::toolkit::install() {
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-toolkit.real"
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-runtime.real"
 
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-runtime.experimental"
+	test -e "${shared_dir}/usr/local/nvidia/toolkit/nvidia-container-runtime-experimental"
+
 	test -e "${shared_dir}/usr/local/nvidia/toolkit/.config/nvidia-container-runtime/config.toml"
 
 	# Ensure that the config file has the required contents.
