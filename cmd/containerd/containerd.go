@@ -22,11 +22,10 @@ const (
 	runtimeTypeV2 = "io.containerd.runc.v1"
 	runtimeBinary = "nvidia-container-runtime"
 
-	defaultConfig             = "/etc/containerd/config.toml"
-	defaultSocket             = "/run/containerd/containerd.sock"
-	defaultRuntimeClass       = "nvidia"
-	defaultSetAsDefault       = true
-	defaultNoSignalContainerd = false
+	defaultConfig       = "/etc/containerd/config.toml"
+	defaultSocket       = "/run/containerd/containerd.sock"
+	defaultRuntimeClass = "nvidia"
+	defaultSetAsDefault = true
 
 	containerdVersion1dot3 = "v1.3"
 
@@ -115,11 +114,11 @@ func main() {
 			Value:       defaultSetAsDefault,
 			Destination: &setAsDefaultFlag,
 			EnvVars:     []string{"CONTAINERD_SET_AS_DEFAULT"},
+			Hidden:      true,
 		},
 		&cli.BoolFlag{
 			Name:        "no-signal-containerd",
 			Usage:       "Do not signal containerd to reload the configuration",
-			Value:       defaultNoSignalContainerd,
 			Destination: &noSignalContainerd,
 			Hidden:      true,
 		},

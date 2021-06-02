@@ -95,6 +95,7 @@ func main() {
 			Value:       defaultSetAsDefault,
 			Destination: &setAsDefaultFlag,
 			EnvVars:     []string{"DOCKER_SET_AS_DEFAULT"},
+			Hidden:      true,
 		},
 	}
 
