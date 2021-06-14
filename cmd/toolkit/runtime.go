@@ -19,6 +19,9 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -27,7 +30,7 @@ const (
 
 // installContainerRuntimes sets up the NVIDIA container runtimes, copying the executables
 // and implementing the required wrapper
-func installContainerRuntimes(toolkitDir string) error {
+func installContainerRuntimes(toolkitDir string, driverRoot string) error {
 	r := newNvidiaContainerRuntimeInstaller()
 
 	_, err := r.install(toolkitDir)
@@ -35,7 +38,10 @@ func installContainerRuntimes(toolkitDir string) error {
 		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
 
-	er := newNvidiaContainerRuntimeExperimentalInstaller()
+	libraryRoot := findLibraryRoot(driverRoot)
+	log.Infof("Using library root %v", libraryRoot)
+
+	er := newNvidiaContainerRuntimeExperimentalInstaller(libraryRoot)
 	_, err = er.install(toolkitDir)
 	if err != nil {
 		return fmt.Errorf("error installing experimental NVIDIA Container Runtime: %v", err)
@@ -49,18 +55,23 @@ func newNvidiaContainerRuntimeInstaller() *executable {
 		dotfileName: "nvidia-container-runtime.real",
 		wrapperName: "nvidia-container-runtime",
 	}
-	return newRuntimeInstaller(nvidiaContainerRuntimeSource, target)
+	return newRuntimeInstaller(nvidiaContainerRuntimeSource, target, nil)
 }
 
-func newNvidiaContainerRuntimeExperimentalInstaller() *executable {
+func newNvidiaContainerRuntimeExperimentalInstaller(libraryRoot string) *executable {
 	target := executableTarget{
 		dotfileName: "nvidia-container-runtime.experimental",
 		wrapperName: "nvidia-container-runtime-experimental",
 	}
-	return newRuntimeInstaller(nvidiaExperimentalContainerRuntimeSource, target)
+
+	env := make(map[string]string)
+	if libraryRoot != "" {
+		env["LD_LIBRARY_PATH"] = strings.Join([]string{libraryRoot, "$LD_LIBRARY_PATH"}, ":")
+	}
+	return newRuntimeInstaller(nvidiaExperimentalContainerRuntimeSource, target, env)
 }
 
-func newRuntimeInstaller(source string, target executableTarget) *executable {
+func newRuntimeInstaller(source string, target executableTarget, env map[string]string) *executable {
 	preLines := []string{
 		"",
 		"cat /proc/modules | grep -e \"^nvidia \" >/dev/null 2>&1",
@@ -70,16 +81,33 @@ func newRuntimeInstaller(source string, target executableTarget) *executable {
 		"fi",
 		"",
 	}
-	env := map[string]string{
-		"XDG_CONFIG_HOME": filepath.Join(destDirPattern, ".config"),
+
+	runtimeEnv := make(map[string]string)
+	runtimeEnv["XDG_CONFIG_HOME"] = filepath.Join(destDirPattern, ".config")
+	for k, v := range env {
+		runtimeEnv[k] = v
 	}
 
 	r := executable{
 		source:   source,
 		target:   target,
-		env:      env,
+		env:      runtimeEnv,
 		preLines: preLines,
 	}
 
 	return &r
+}
+
+func findLibraryRoot(root string) string {
+	libnvidiamlPath, err := findManagementLibrary(root)
+	if err != nil {
+		log.Warnf("Error locating NVIDIA management library: %v", err)
+		return ""
+	}
+
+	return filepath.Dir(libnvidiamlPath)
+}
+
+func findManagementLibrary(root string) (string, error) {
+	return findLibrary(root, "libnvidia-ml.so")
 }
