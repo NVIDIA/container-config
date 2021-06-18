@@ -25,7 +25,13 @@ import (
 )
 
 const (
-	nvidiaExperimentalContainerRuntimeSource = "nvidia-container-runtime.experimental"
+	nvidiaContainerRuntimeSource  = "/usr/bin/nvidia-container-runtime"
+	nvidiaContainerRuntimeTarget  = "nvidia-container-runtime.real"
+	nvidiaContainerRuntimeWrapper = "nvidia-container-runtime"
+
+	nvidiaExperimentalContainerRuntimeSource  = "nvidia-container-runtime.experimental"
+	nvidiaExperimentalContainerRuntimeTarget  = nvidiaExperimentalContainerRuntimeSource
+	nvidiaExperimentalContainerRuntimeWrapper = "nvidia-container-runtime-experimental"
 )
 
 // installContainerRuntimes sets up the NVIDIA container runtimes, copying the executables
@@ -38,11 +44,25 @@ func installContainerRuntimes(toolkitDir string, driverRoot string) error {
 		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
 
-	libraryRoot := findLibraryRoot(driverRoot)
+	// Install the experimental runtime and treat failures as non-fatal.
+	err = installExperimentalRuntime(toolkitDir, driverRoot)
+	if err != nil {
+		log.Warnf("Could not install experimental runtime: %v", err)
+	}
+
+	return nil
+}
+
+// installExperimentalRuntime ensures that the experimental NVIDIA Container runtime is installed
+func installExperimentalRuntime(toolkitDir string, driverRoot string) error {
+	libraryRoot, err := findLibraryRoot(driverRoot)
+	if err != nil {
+		log.Warnf("Error finding library path for root %v: %v", driverRoot, err)
+	}
 	log.Infof("Using library root %v", libraryRoot)
 
-	er := newNvidiaContainerRuntimeExperimentalInstaller(libraryRoot)
-	_, err = er.install(toolkitDir)
+	e := newNvidiaContainerRuntimeExperimentalInstaller(libraryRoot)
+	_, err = e.install(toolkitDir)
 	if err != nil {
 		return fmt.Errorf("error installing experimental NVIDIA Container Runtime: %v", err)
 	}
@@ -52,16 +72,16 @@ func installContainerRuntimes(toolkitDir string, driverRoot string) error {
 
 func newNvidiaContainerRuntimeInstaller() *executable {
 	target := executableTarget{
-		dotfileName: "nvidia-container-runtime.real",
-		wrapperName: "nvidia-container-runtime",
+		dotfileName: nvidiaContainerRuntimeTarget,
+		wrapperName: nvidiaContainerRuntimeWrapper,
 	}
 	return newRuntimeInstaller(nvidiaContainerRuntimeSource, target, nil)
 }
 
 func newNvidiaContainerRuntimeExperimentalInstaller(libraryRoot string) *executable {
 	target := executableTarget{
-		dotfileName: "nvidia-container-runtime.experimental",
-		wrapperName: "nvidia-container-runtime-experimental",
+		dotfileName: nvidiaExperimentalContainerRuntimeTarget,
+		wrapperName: nvidiaExperimentalContainerRuntimeWrapper,
 	}
 
 	env := make(map[string]string)
@@ -98,14 +118,13 @@ func newRuntimeInstaller(source string, target executableTarget, env map[string]
 	return &r
 }
 
-func findLibraryRoot(root string) string {
+func findLibraryRoot(root string) (string, error) {
 	libnvidiamlPath, err := findManagementLibrary(root)
 	if err != nil {
-		log.Warnf("Error locating NVIDIA management library: %v", err)
-		return ""
+		return "", fmt.Errorf("error locating NVIDIA management library: %v", err)
 	}
 
-	return filepath.Dir(libnvidiamlPath)
+	return filepath.Dir(libnvidiamlPath), nil
 }
 
 func findManagementLibrary(root string) (string, error) {

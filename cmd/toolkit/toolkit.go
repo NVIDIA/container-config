@@ -34,7 +34,6 @@ const (
 
 	nvidiaContainerCliSource         = "/usr/bin/nvidia-container-cli"
 	nvidiaContainerRuntimeHookSource = "/usr/bin/nvidia-container-toolkit"
-	nvidiaContainerRuntimeSource     = "/usr/bin/nvidia-container-runtime"
 
 	nvidiaContainerToolkitConfigSource = "/etc/nvidia-container-runtime/config.toml"
 	configFilename                     = "config.toml"
