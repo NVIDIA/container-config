@@ -62,8 +62,6 @@ ARG LIBNVIDIA_CONTAINER_VERSION
 ARG NVIDIA_CONTAINER_TOOLKIT_VERSION
 ARG NVIDIA_CONTAINER_RUNTIME_VERSION
 
-RUN sed -i -e '/experimental/ s/^#//g' /etc/apt/sources.list.d/nvidia-docker.list
-
 RUN /bin/bash -c " \
     apt-get update && apt-get install -y --no-install-recommends \
     libnvidia-container1=\${LIBNVIDIA_CONTAINER_VERSION/-/\~}-1 \
