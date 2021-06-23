@@ -34,7 +34,6 @@ const (
 
 	nvidiaContainerCliSource         = "/usr/bin/nvidia-container-cli"
 	nvidiaContainerRuntimeHookSource = "/usr/bin/nvidia-container-toolkit"
-	nvidiaContainerRuntimeSource     = "/usr/bin/nvidia-container-runtime"
 
 	nvidiaContainerToolkitConfigSource = "/etc/nvidia-container-runtime/config.toml"
 	configFilename                     = "config.toml"
@@ -150,7 +149,7 @@ func Install(cli *cli.Context) error {
 		return fmt.Errorf("error installing NVIDIA container library: %v", err)
 	}
 
-	err = installContainerRuntimes(toolkitDirArg)
+	err = installContainerRuntimes(toolkitDirArg, nvidiaDriverRootFlag)
 	if err != nil {
 		return fmt.Errorf("error installing NVIDIA container runtime: %v", err)
 	}
@@ -180,39 +179,28 @@ func Install(cli *cli.Context) error {
 func installContainerLibrary(toolkitDir string) error {
 	log.Infof("Installing NVIDIA container library to '%v'", toolkitDir)
 
-	candidates := []string{
-		"/usr/lib64/libnvidia-container.so.1",
-		"/usr/lib/x86_64-linux-gnu/libnvidia-container.so.1",
+	const libName = "libnvidia-container.so.1"
+	libraryPath, err := findLibrary("", libName)
+	if err != nil {
+		return fmt.Errorf("error locating NVIDIA container library: %v", err)
 	}
-	for _, l := range candidates {
-		log.Infof("Checking library candidate '%v'", l)
 
-		libraryCandidate, err := resolveLink(l)
-		if err != nil {
-			log.Infof("Skipping library candidate '%v': %v", l, err)
-			continue
-		}
+	installedLibPath, err := installFileToFolder(toolkitDir, libraryPath)
+	if err != nil {
+		return fmt.Errorf("error installing %v to %v: %v", libraryPath, toolkitDir, err)
+	}
+	log.Infof("Installed '%v' to '%v'", libraryPath, installedLibPath)
 
-		installedLibPath, err := installFileToFolder(toolkitDir, libraryCandidate)
-		if err != nil {
-			log.Infof("Skipping library candidate '%v': %v", l, err)
-			continue
-		}
-		log.Infof("Installed '%v' to '%v'", l, installedLibPath)
-
-		const libName = "libnvidia-container.so.1"
-		if filepath.Base(installedLibPath) == libName {
-			return nil
-		}
-
-		err = installSymlink(toolkitDir, libName, installedLibPath)
-		if err != nil {
-			return fmt.Errorf("error installing symlink for NVIDIA container library: %v", err)
-		}
+	if filepath.Base(installedLibPath) == libName {
 		return nil
 	}
 
-	return fmt.Errorf("error locating NVIDIA container library")
+	err = installSymlink(toolkitDir, libName, installedLibPath)
+	if err != nil {
+		return fmt.Errorf("error installing symlink for NVIDIA container library: %v", err)
+	}
+
+	return nil
 }
 
 // installToolkitConfig installs the config file for the NVIDIA container toolkit ensuring
@@ -398,6 +386,32 @@ func applyModeFromSource(dest string, src string) error {
 		return fmt.Errorf("error setting mode for '%v': %v", dest, err)
 	}
 	return nil
+}
+
+// findLibrary searches a set of candidate libraries in the specified root for
+// a given library name
+func findLibrary(root string, libName string) (string, error) {
+	log.Infof("Finding library %v (root=%v)", libName, root)
+
+	candidateDirs := []string{
+		"/usr/lib64",
+		"/usr/lib/x86_64-linux-gnu",
+	}
+
+	for _, d := range candidateDirs {
+		l := filepath.Join(root, d, libName)
+		log.Infof("Checking library candidate '%v'", l)
+
+		libraryCandidate, err := resolveLink(l)
+		if err != nil {
+			log.Infof("Skipping library candidate '%v': %v", l, err)
+			continue
+		}
+
+		return libraryCandidate, nil
+	}
+
+	return "", fmt.Errorf("error locating library '%v'", libName)
 }
 
 // resolveLink finds the target of a symlink or the file itself in the
