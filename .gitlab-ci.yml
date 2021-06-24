@@ -119,12 +119,25 @@ unit-tests:
   variables:
     TEST_CASES: "crio"
 
-integration-ubuntu16:
+integration:toolkit-centos7:
   extends:
-    - .integration
-    - .target-ubuntu16
-  variables:
-    SKIP_TESTS: "true"
+    - .test:toolkit
+    - .target-centos7
+
+integration:docker-centos7:
+  extends:
+    - .test:docker
+    - .target-centos7
+
+integration:containerd-centos7:
+  extends:
+    - .test:containerd
+    - .target-centos7
+
+integration:crio-centos7:
+  extends:
+    - .test:crio
+    - .target-centos7
 
 integration:toolkit-ubuntu18:
   extends:
@@ -145,10 +158,3 @@ integration:crio-ubuntu18:
   extends:
     - .test:crio
     - .target-ubuntu18
-
-integration-ubi8:
-  extends:
-    - .integration
-    - .target-ubi8
-  variables:
-    SKIP_TESTS: "true"
