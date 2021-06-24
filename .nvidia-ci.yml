@@ -79,6 +79,11 @@ scan-centos7:
     - .scan
     - .target-centos7
 
+scan-centos8:
+  extends:
+    - .scan
+    - .target-centos8
+
 scan-ubuntu16:
   extends:
     - .scan
@@ -119,6 +124,14 @@ release:ngc-centos7:
     - deploy:sha-ci-centos7
     - scan-centos7
 
+release:ngc-centos8:
+  extends:
+    - .release:ngc
+    - .target-centos8
+  dependencies:
+    - deploy:sha-ci-centos8
+    - scan-centos8
+
 release:ngc-ubuntu16:
   extends:
     - .release:ngc
@@ -150,6 +163,14 @@ release:dockerhub-centos7:
   dependencies:
     - deploy:sha-ci-centos7
     - scan-centos7
+
+release:dockerhub-centos8:
+  extends:
+    - .release:dockerhub
+    - .target-centos8
+  dependencies:
+    - deploy:sha-ci-centos8
+    - scan-centos8
 
 release:dockerhub-ubuntu16:
   extends:
