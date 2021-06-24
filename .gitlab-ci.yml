@@ -2,8 +2,8 @@ include:
   - local: '.common-ci.yml'
 
 stages:
-  - image
-  - lint
+  - dev-image
+  - check
   - build
   - test
   - deploy
@@ -17,7 +17,7 @@ stages:
 build-dev-image:
   extends:
     - .dev-image
-  stage: image
+  stage: dev-image
   before_script:
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
   script:
@@ -35,41 +35,41 @@ build-dev-image:
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - make .pull-build-image
 
-.lint:
+.check:
   extends:
     - .requires-build-image
-  stage: lint
+  stage: check
   allow_failure: true
 
 fmt:
   extends:
-    - .lint
+    - .check
   script:
     - make docker-assert-fmt
 
 vet:
   extends:
-    - .lint
+    - .check
   script:
     - make docker-vet
 
 lint:
   extends:
-    - .lint
+    - .check
   script:
     - make docker-lint
 
 build:
   extends:
     - .requires-build-image
-  stage: build
+  stage: check
   script:
     - make docker-build
 
 unit-tests:
   extends:
     - .requires-build-image
-  stage: test
+  stage: check
   script:
     - make docker-coverage
 
@@ -119,12 +119,25 @@ unit-tests:
   variables:
     TEST_CASES: "crio"
 
-integration-ubuntu16:
+integration:toolkit-centos7:
   extends:
-    - .integration
-    - .target-ubuntu16
-  variables:
-    SKIP_TESTS: "true"
+    - .test:toolkit
+    - .target-centos7
+
+integration:docker-centos7:
+  extends:
+    - .test:docker
+    - .target-centos7
+
+integration:containerd-centos7:
+  extends:
+    - .test:containerd
+    - .target-centos7
+
+integration:crio-centos7:
+  extends:
+    - .test:crio
+    - .target-centos7
 
 integration:toolkit-ubuntu18:
   extends:
@@ -145,10 +158,3 @@ integration:crio-ubuntu18:
   extends:
     - .test:crio
     - .target-ubuntu18
-
-integration-ubi8:
-  extends:
-    - .integration
-    - .target-ubi8
-  variables:
-    SKIP_TESTS: "true"

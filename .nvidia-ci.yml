@@ -74,6 +74,11 @@ skipped_integration:
     - cd contamer
     - python3 contamer.py -ls --fail-on-non-os ${CONTAMER_SUPPRESS_VULNS:+--suppress-vulns ${CONTAMER_SUPPRESS_VULNS}} -- "${OUT_IMAGE}:${OUT_IMAGE_TAG}"
 
+scan-centos7:
+  extends:
+    - .scan
+    - .target-centos7
+
 scan-ubuntu16:
   extends:
     - .scan
@@ -106,6 +111,14 @@ scan-ubi8:
     OUT_REGISTRY: "${DOCKERHUB_REGISTRY}"
     OUT_IMAGE: "${REGISTRY_IMAGE}"
 
+release:ngc-centos7:
+  extends:
+    - .release:ngc
+    - .target-centos7
+  dependencies:
+    - deploy:sha-ci-centos7
+    - scan-centos7
+
 release:ngc-ubuntu16:
   extends:
     - .release:ngc
@@ -129,6 +142,14 @@ release:ngc-ubi8:
   dependencies:
     - deploy:sha-ci-ubi8
     - scan-ubi8
+
+release:dockerhub-centos7:
+  extends:
+    - .release:dockerhub
+    - .target-centos7
+  dependencies:
+    - deploy:sha-ci-centos7
+    - scan-centos7
 
 release:dockerhub-ubuntu16:
   extends:
