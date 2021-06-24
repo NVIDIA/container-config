@@ -1,0 +1,83 @@
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ARG BASE_DIST
+ARG CUDA_VERSION
+FROM ubuntu:20.04 as build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        g++ \
+        git \
+        ca-certificates \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG GOLANG_VERSION=x.x.x
+RUN wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz \
+    | tar -C /usr/local -xz
+ENV PATH /usr/local/go/bin:$PATH
+
+ENV GOPATH=/artifacts
+
+ARG NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION=latest
+RUN go install gitlab.com/nvidia/cloud-native/container-toolkit/cmd/nvidia-container-runtime.experimental@${NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION}
+
+WORKDIR /build
+
+COPY . .
+
+RUN go install ./cmd/...
+
+FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST}
+
+ENV NVIDIA_DISABLE_REQUIRE="true"
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=utility
+
+RUN yum install -y curl wget yum-utils
+
+RUN distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+   && curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | tee /etc/yum.repos.d/nvidia-docker.repo
+
+ARG LIBNVIDIA_CONTAINER_VERSION
+ARG NVIDIA_CONTAINER_TOOLKIT_VERSION
+ARG NVIDIA_CONTAINER_RUNTIME_VERSION
+
+RUN /bin/bash -c " \
+    yum install -y procps \
+    libnvidia-container1-\${LIBNVIDIA_CONTAINER_VERSION/-/-0.1.} \
+    libnvidia-container-tools-\${LIBNVIDIA_CONTAINER_VERSION/-/-0.1.} \
+    nvidia-container-toolkit-\${NVIDIA_CONTAINER_TOOLKIT_VERSION/-/-0.1.} \
+    nvidia-container-runtime-\${NVIDIA_CONTAINER_RUNTIME_VERSION/-/-0.1.}"
+
+WORKDIR /work
+
+COPY --from=build /artifacts/bin /work
+
+
+ENV PATH=/work:$PATH
+
+ARG VERSION
+
+LABEL io.k8s.display-name="NVIDIA Container Runtime Config"
+LABEL name="NVIDIA Container Runtime Config"
+LABEL vendor="NVIDIA"
+LABEL version="${VERSION}"
+LABEL release="N/A"
+LABEL summary="Automatically Configure your Container Runtime for GPU support."
+LABEL description="See summary"
+
+COPY ./LICENSE /licenses/LICENSE
+
+ENTRYPOINT ["nvidia-toolkit"]
