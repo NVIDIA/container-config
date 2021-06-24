@@ -37,7 +37,7 @@ NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION=latest
 
 ##### Public rules #####
 DEFAULT_PUSH_TARGET := ubuntu18.04
-TARGETS := ubuntu20.04 ubuntu18.04 ubuntu16.04 ubi8 centos7
+TARGETS := ubuntu20.04 ubuntu18.04 ubuntu16.04 ubi8 centos7 centos8
 
 PUSH_TARGETS := $(patsubst %, push-%, $(TARGETS))
 BUILD_TARGETS := $(patsubst %, build-%, $(TARGETS))
@@ -74,6 +74,7 @@ build-ubi8: BASE_DIST := ubi8
 
 build-centos%: DOCKERFILE_SUFFIX := centos
 build-centos7: BASE_DIST := centos7
+build-centos8: BASE_DIST := centos8
 
 # Both ubi8 and build-ubi8 trigger a build of the relevant image
 $(TARGETS): %: build-%
