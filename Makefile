@@ -53,8 +53,11 @@ build-all: $(BUILD_TARGETS)
 $(PUSH_TARGETS): push-%:
 	$(DOCKER) push "$(IMAGE):$(VERSION)-$(*)"
 
-# For the default push target we also push the short and latest tags
+# For the default push target we also push the short and latest tags.
+# We skip this if the version is explicitly latest
+ifneq ($(strip $(VERSION)),latest)
 push-$(DEFAULT_PUSH_TARGET): push-short push-latest
+endif
 push-short:
 	$(DOCKER) tag "$(IMAGE):$(VERSION)-$(DEFAULT_PUSH_TARGET)" "$(IMAGE):$(VERSION)"
 	$(DOCKER) push "$(IMAGE):$(VERSION)"

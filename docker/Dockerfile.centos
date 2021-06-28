@@ -37,7 +37,8 @@ WORKDIR /build
 
 COPY . .
 
-RUN go install ./cmd/...
+ARG VERSION="N/A"
+RUN go install -ldflags="-s -w -X 'main.Version=${VERSION}'" ./cmd/...
 
 FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST}
 

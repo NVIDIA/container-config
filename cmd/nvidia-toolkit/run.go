@@ -36,6 +36,9 @@ var toolkitArgsFlag string
 var runtimeFlag string
 var runtimeArgsFlag string
 
+// Version defines the CLI version. This is set at build time using LD FLAGS
+var Version = "development"
+
 func main() {
 	// Create the top-level CLI
 	c := cli.NewApp()
@@ -43,7 +46,7 @@ func main() {
 	c.Usage = "Install the nvidia-container-toolkit for use by a given runtime"
 	c.UsageText = "DESTINATION [-n | --no-daemon] [-t | --toolkit-args] [-r | --runtime] [-u | --runtime-args]"
 	c.Description = "DESTINATION points to the host path underneath which the nvidia-container-toolkit should be installed.\nIt will be installed at ${DESTINATION}/toolkit"
-	c.Version = "0.1.0"
+	c.Version = Version
 	c.Action = Run
 
 	// Setup flags for the CLI
@@ -148,6 +151,9 @@ func ParseArgs(args []string) ([]string, error) {
 
 	for _, arg := range args {
 		if arg == "--help" || arg == "-h" {
+			return []string{args[0], arg}, nil
+		}
+		if arg == "--version" || arg == "-v" {
 			return []string{args[0], arg}, nil
 		}
 	}

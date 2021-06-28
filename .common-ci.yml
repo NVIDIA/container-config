@@ -158,10 +158,14 @@ deploy:sha-ci-ubi8:
 
 .release:external:
   extends: .release
-  variables:
-    VERSION: "${CI_COMMIT_TAG}"
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      variables:
+        VERSION: "${CI_COMMIT_TAG}"
+    - if: $CI_COMMIT_BRANCH == $RELEASE_LATEST_BRANCH
+      variables:
+        VERSION: "latest"
+        DOCKER: "echo"
 
 release:staging-centos7:
   extends:
