@@ -85,6 +85,7 @@ scan-centos8:
   extends:
     - .scan
     - .target-centos8
+  allow_failure: true
 
 scan-ubuntu16:
   extends:
@@ -133,6 +134,8 @@ release:ngc-centos8:
   dependencies:
     - deploy:sha-ci-centos8
     - scan-centos8
+  rules:
+    - when: never
 
 release:ngc-ubuntu16:
   extends:
@@ -173,6 +176,8 @@ release:dockerhub-centos8:
   dependencies:
     - deploy:sha-ci-centos8
     - scan-centos8
+  rules:
+    - when: never
 
 release:dockerhub-ubuntu16:
   extends:
