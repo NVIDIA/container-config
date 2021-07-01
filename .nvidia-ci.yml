@@ -31,8 +31,9 @@ default:
 variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
-  # Release "latest"-tagged images off the master branch
-  RELEASE_LATEST_BRANCH: "master"
+  # Release "devel"-tagged images off the master branch
+  RELEASE_DEVEL_BRANCH: "master"
+  RELEASE_DEVEL_TAG: "devel"
 
 stages:
   - build
