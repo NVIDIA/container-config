@@ -9,26 +9,26 @@ variables:
   IMAGE_NAME: "container-toolkit"
   DOCKERHUB_REGISTRY: "docker.io"
 
-# Define the following dummy targets for specifying make targets through the TARGET variable
+# Define the following dummy jobs for specifying make targets through the DIST variable
 .target-centos7:
   variables:
-    TARGET: centos7
+    DIST: centos7
 
 .target-centos8:
   variables:
-    TARGET: centos8
+    DIST: centos8
 
 .target-ubuntu16:
   variables:
-    TARGET: ubuntu16.04
+    DIST: ubuntu16.04
 
 .target-ubuntu18:
   variables:
-    TARGET: ubuntu18.04
+    DIST: ubuntu18.04
 
 .target-ubi8:
   variables:
-    TARGET: ubi8
+    DIST: ubi8
 
 # The .build step forms the base of the image builds with each variant
 # defined as a build-${VARIANT} step.
@@ -41,8 +41,8 @@ variables:
     - apk add make
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
   script:
-    - make build-${TARGET}
-    - make push-${TARGET}
+    - make build-${DIST}
+    - make push-${DIST}
 
 build-centos7:
   extends:
@@ -82,14 +82,14 @@ build-ubi8:
     - apk add --no-cache make bash
     - 'echo "Logging in to CI registry ${CI_REGISTRY}"'
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${DIST}"
   script:
-    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${TARGET}" "${OUT_IMAGE}:${VERSION#v}-${TARGET}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHA}-${DIST}" "${OUT_IMAGE}:${VERSION#v}-${DIST}"
     # Log in to the "output" registry, tag the image and push the image
     - 'echo "Logging in to output registry ${OUT_REGISTRY}"'
     - docker logout
     - docker login -u "${OUT_REGISTRY_USER}" -p "${OUT_REGISTRY_TOKEN}" "${OUT_REGISTRY}"
-    - make IMAGE=${OUT_IMAGE} VERSION=${VERSION#v} push-${TARGET}
+    - make IMAGE=${OUT_IMAGE} VERSION=${VERSION#v} push-${DIST}
 
 # .deploy:sha sets the internal deployment version to the git SHA and deploys to the CI
 # container registry
