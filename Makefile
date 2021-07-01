@@ -53,19 +53,11 @@ build-all: $(BUILD_TARGETS)
 $(PUSH_TARGETS): push-%:
 	$(DOCKER) push "$(IMAGE):$(VERSION)-$(*)"
 
-# For the default push target we also push the short and latest tags.
-# We skip this if the version is explicitly latest
-ifneq ($(strip $(VERSION)),latest)
-push-$(DEFAULT_PUSH_TARGET): push-short push-latest
-endif
+# For the default push target we also push a short tag equal to the version.
+push-$(DEFAULT_PUSH_TARGET): push-short
 push-short:
 	$(DOCKER) tag "$(IMAGE):$(VERSION)-$(DEFAULT_PUSH_TARGET)" "$(IMAGE):$(VERSION)"
 	$(DOCKER) push "$(IMAGE):$(VERSION)"
-
-push-latest:
-	$(DOCKER) tag "$(IMAGE):$(VERSION)-$(DEFAULT_PUSH_TARGET)" "$(IMAGE):latest"
-	$(DOCKER) push "$(IMAGE):latest"
-
 
 build-ubuntu%: DOCKERFILE_SUFFIX := ubuntu
 build-ubuntu16.04: BASE_DIST := ubuntu16.04
