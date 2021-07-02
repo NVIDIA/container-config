@@ -138,6 +138,7 @@ func TestUpdateV1Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
 	const runtimeDir = "/test/runtime/dir"
 	runtimeClassFlag = runtimeClass
+	runtimeTypeFlag = "runtime_type"
 	runtimeDirnameArg = runtimeDir
 
 	testCases := []struct {
@@ -155,7 +156,7 @@ func TestUpdateV1Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runtime.v1.linux",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
@@ -233,7 +234,7 @@ func TestUpdateV1Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runtime.v1.linux",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
@@ -243,7 +244,7 @@ func TestUpdateV1Config(t *testing.T) {
 								},
 							},
 							"default_runtime": map[string]interface{}{
-								"runtime_type":                    "io.containerd.runtime.v1.linux",
+								"runtime_type":                    "runtime_type",
 								"runtime_root":                    "",
 								"runtime_engine":                  "",
 								"privileged_without_host_devices": false,
@@ -268,7 +269,7 @@ func TestUpdateV1Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runtime.v1.linux",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
@@ -278,7 +279,7 @@ func TestUpdateV1Config(t *testing.T) {
 								},
 							},
 							"default_runtime": map[string]interface{}{
-								"runtime_type":                    "io.containerd.runtime.v1.linux",
+								"runtime_type":                    "runtime_type",
 								"runtime_root":                    "",
 								"runtime_engine":                  "",
 								"privileged_without_host_devices": false,
@@ -315,6 +316,7 @@ func TestUpdateV1Config(t *testing.T) {
 func TestRevertV1Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
 	runtimeClassFlag = runtimeClass
+	runtimeTypeFlag = "runtime_type"
 
 	testCases := []struct {
 		config map[string]interface {
@@ -335,7 +337,7 @@ func TestRevertV1Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runtime.v1.linux",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
@@ -357,7 +359,7 @@ func TestRevertV1Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runtime.v1.linux",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
@@ -367,7 +369,7 @@ func TestRevertV1Config(t *testing.T) {
 								},
 							},
 							"default_runtime": map[string]interface{}{
-								"runtime_type":                    "io.containerd.runtime.v1.linux",
+								"runtime_type":                    "runtime_type",
 								"runtime_root":                    "",
 								"runtime_engine":                  "",
 								"privileged_without_host_devices": false,
@@ -404,6 +406,7 @@ func TestUpdateV2Config(t *testing.T) {
 	const runtimeClass = "runtime-class"
 	const runtimeDir = "/test/runtime/dir"
 	runtimeClassFlag = runtimeClass
+	runtimeTypeFlag = "runtime_type"
 	runtimeDirnameArg = runtimeDir
 
 	testCases := []struct {
@@ -420,7 +423,7 @@ func TestUpdateV2Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runc.v1",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
@@ -497,7 +500,7 @@ func TestUpdateV2Config(t *testing.T) {
 						"containerd": map[string]interface{}{
 							"runtimes": map[string]interface{}{
 								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "io.containerd.runc.v1",
+									"runtime_type":                    "runtime_type",
 									"runtime_root":                    "",
 									"runtime_engine":                  "",
 									"privileged_without_host_devices": false,
