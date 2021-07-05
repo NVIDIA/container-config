@@ -243,15 +243,6 @@ func TestUpdateV1Config(t *testing.T) {
 									},
 								},
 							},
-							"default_runtime": map[string]interface{}{
-								"runtime_type":                    "runtime_type",
-								"runtime_root":                    "",
-								"runtime_engine":                  "",
-								"privileged_without_host_devices": false,
-								"options": map[string]interface{}{
-									"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-								},
-							},
 							"default_runtime_name": runtimeClass,
 						},
 					},

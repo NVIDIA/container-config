@@ -417,18 +417,26 @@ func UpdateV1Config(config *toml.Tree, containerdVersion containerdVersion) erro
 	}
 	config.SetPath(append(runtimeClassOptionsPath, "Runtime"), runtimePath)
 
-	if setAsDefaultFlag {
-		if config.GetPath(defaultRuntimePath) == nil {
-			config.SetPath(append(defaultRuntimePath, "runtime_type"), runtimeTypeFlag)
-			config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
-			config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
-			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
-		}
-		config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
-		if containerdVersion.atLeast(containerdVersion1dot3) {
-			config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
-		}
+	if !setAsDefaultFlag {
+		return nil
 	}
+
+	if containerdVersion.atLeast(containerdVersion1dot3) {
+		config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
+		if config.GetPath(defaultRuntimePath) != nil {
+			log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
+		}
+		return nil
+	}
+
+	log.Warnf("Support for containerd version %v is deprecated", containerdVersion1dot3)
+	if config.GetPath(defaultRuntimePath) == nil {
+		config.SetPath(append(defaultRuntimePath, "runtime_type"), runtimeTypeFlag)
+		config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
+		config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
+		config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
+	}
+	config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
 
 	return nil
 }
