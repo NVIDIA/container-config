@@ -18,6 +18,7 @@ FROM ubuntu:20.04 as build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         g++ \
+        git \
         ca-certificates \
         wget && \
     rm -rf /var/lib/apt/lists/*
@@ -28,6 +29,9 @@ RUN wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linu
 ENV PATH /usr/local/go/bin:$PATH
 
 ENV GOPATH=/artifacts
+
+ARG NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION=latest
+RUN go install gitlab.com/nvidia/cloud-native/container-toolkit/cmd/nvidia-container-runtime.experimental@${NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION}
 
 WORKDIR /build
 
