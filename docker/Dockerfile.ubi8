@@ -30,8 +30,8 @@ ENV PATH /usr/local/go/bin:$PATH
 
 ENV GOPATH=/artifacts
 
-ARG NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION=latest
-RUN go install gitlab.com/nvidia/cloud-native/container-toolkit/cmd/nvidia-container-runtime.experimental@${NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION}
+ARG NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION=experimental
+RUN go install github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-container-runtime.experimental@${NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION}
 
 WORKDIR /build
 
