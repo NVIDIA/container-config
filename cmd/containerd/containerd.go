@@ -1,3 +1,19 @@
+/**
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+*/
+
 package main
 
 import (
@@ -11,6 +27,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/plugin"
 	toml "github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
@@ -18,13 +35,12 @@ import (
 )
 
 const (
-	runtimeTypeV1 = "io.containerd.runtime.v1.linux"
-	runtimeTypeV2 = "io.containerd.runc.v1"
 	runtimeBinary = "nvidia-container-runtime"
 
 	defaultConfig       = "/etc/containerd/config.toml"
 	defaultSocket       = "/run/containerd/containerd.sock"
 	defaultRuntimeClass = "nvidia"
+	defaultRuntmeType   = plugin.RuntimeRuncV2
 	defaultSetAsDefault = true
 
 	containerdVersion1dot3 = "v1.3"
@@ -43,6 +59,7 @@ var runtimeDirnameArg string
 var configFlag string
 var socketFlag string
 var runtimeClassFlag string
+var runtimeTypeFlag string
 var setAsDefaultFlag bool
 var noSignalContainerd bool
 
@@ -105,6 +122,13 @@ func main() {
 			Value:       defaultRuntimeClass,
 			Destination: &runtimeClassFlag,
 			EnvVars:     []string{"CONTAINERD_RUNTIME_CLASS"},
+		},
+		&cli.StringFlag{
+			Name:        "runtime-type",
+			Usage:       "The runtime_type to use for the configured runtime classes",
+			Value:       defaultRuntmeType,
+			Destination: &runtimeTypeFlag,
+			EnvVars:     []string{"CONTAINERD_RUNTIME_TYPE"},
 		},
 		// The flags below are only used by the 'setup' command.
 		&cli.BoolFlag{
@@ -386,25 +410,33 @@ func UpdateV1Config(config *toml.Tree, containerdVersion containerdVersion) erro
 		runc, _ = toml.Load(runc.String())
 		config.SetPath(runtimeClassPath, runc)
 	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeV1)
+		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeFlag)
 		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
 		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
 		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
 	}
 	config.SetPath(append(runtimeClassOptionsPath, "Runtime"), runtimePath)
 
-	if setAsDefaultFlag {
-		if config.GetPath(defaultRuntimePath) == nil {
-			config.SetPath(append(defaultRuntimePath, "runtime_type"), runtimeTypeV1)
-			config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
-			config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
-			config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
-		}
-		config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
-		if containerdVersion.atLeast(containerdVersion1dot3) {
-			config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
-		}
+	if !setAsDefaultFlag {
+		return nil
 	}
+
+	if containerdVersion.atLeast(containerdVersion1dot3) {
+		config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
+		if config.GetPath(defaultRuntimePath) != nil {
+			log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
+		}
+		return nil
+	}
+
+	log.Warnf("Support for containerd version %v is deprecated", containerdVersion1dot3)
+	if config.GetPath(defaultRuntimePath) == nil {
+		config.SetPath(append(defaultRuntimePath, "runtime_type"), runtimeTypeFlag)
+		config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
+		config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
+		config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
+	}
+	config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
 
 	return nil
 }
@@ -539,7 +571,7 @@ func UpdateV2Config(config *toml.Tree) error {
 		runc, _ = toml.Load(runc.String())
 		config.SetPath(runtimeClassPath, runc)
 	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeV2)
+		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeFlag)
 		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
 		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
 		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
