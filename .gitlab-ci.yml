@@ -86,10 +86,10 @@ unit-tests:
   before_script:
     - apk add make bash jq
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}"
-    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${TARGET}" "${IMAGE_NAME}:${VERSION}-${TARGET}"
+    - docker pull "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${DIST}"
+    - docker tag "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${VERSION}-${DIST}" "${IMAGE_NAME}:${VERSION}-${DIST}"
   script:
-    - make test-${TARGET}
+    - make test-${DIST}
 
 .test:toolkit:
   extends:
