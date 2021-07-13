@@ -43,6 +43,7 @@ var toolkitDirArg string
 var nvidiaDriverRootFlag string
 var nvidiaContainerRuntimeDebugFlag string
 var nvidiaContainerRuntimeLogLevelFlag string
+var nvidiaContainerCLIDebugFlag string
 
 func main() {
 	// Create the top-level CLI
@@ -82,6 +83,7 @@ func main() {
 		},
 		&cli.StringFlag{
 			Name:        "nvidia-container-runtime-debug",
+			Usage:       "Specify the location of the debug log file for the NVIDIA Container Runtime",
 			Destination: &nvidiaContainerRuntimeDebugFlag,
 			EnvVars:     []string{"NVIDIA_CONTAINER_RUNTIME_DEBUG"},
 		},
@@ -89,6 +91,12 @@ func main() {
 			Name:        "nvidia-container-runtime-debug-log-level",
 			Destination: &nvidiaContainerRuntimeLogLevelFlag,
 			EnvVars:     []string{"NVIDIA_CONTAINER_RUNTIME_LOG_LEVEL"},
+		},
+		&cli.StringFlag{
+			Name:        "nvidia-container-cli-debug",
+			Usage:       "Specify the location of the debug log file for the NVIDIA Container CLI",
+			Destination: &nvidiaContainerCLIDebugFlag,
+			EnvVars:     []string{"NVIDIA_CONTAINER_CLI_DEBUG"},
 		},
 	}
 
@@ -238,6 +246,7 @@ func installToolkitConfig(toolkitConfigPath string, nvidiaDriverDir string, nvid
 	debugOptions := map[string]string{
 		"nvidia-container-runtime.debug":     nvidiaContainerRuntimeDebugFlag,
 		"nvidia-container-runtime.log-level": nvidiaContainerRuntimeLogLevelFlag,
+		"nvidia-container-cli.debug":         nvidiaContainerCLIDebugFlag,
 	}
 	for key, value := range debugOptions {
 		if value == "" {
