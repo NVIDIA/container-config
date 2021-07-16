@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"syscall"
@@ -35,13 +36,19 @@ import (
 )
 
 const (
+	restartModeSignal  = "signal"
+	restartModeSystemd = "systemd"
+	restartModeNone    = "NONE"
+
 	runtimeBinary = "nvidia-container-runtime"
 
-	defaultConfig       = "/etc/containerd/config.toml"
-	defaultSocket       = "/run/containerd/containerd.sock"
-	defaultRuntimeClass = "nvidia"
-	defaultRuntmeType   = plugin.RuntimeRuncV2
-	defaultSetAsDefault = true
+	defaultConfig        = "/etc/containerd/config.toml"
+	defaultSocket        = "/run/containerd/containerd.sock"
+	defaultRuntimeClass  = "nvidia"
+	defaultRuntmeType    = plugin.RuntimeRuncV2
+	defaultSetAsDefault  = true
+	defaultRestartMode   = restartModeSignal
+	defaultHostRootMount = "/host"
 
 	containerdVersion1dot3 = "v1.3"
 
@@ -61,7 +68,8 @@ var socketFlag string
 var runtimeClassFlag string
 var runtimeTypeFlag string
 var setAsDefaultFlag bool
-var noSignalContainerd bool
+var restartModeFlag string
+var hostRootMountFlag string
 
 func main() {
 	// Create the top-level CLI
@@ -140,11 +148,19 @@ func main() {
 			EnvVars:     []string{"CONTAINERD_SET_AS_DEFAULT"},
 			Hidden:      true,
 		},
-		&cli.BoolFlag{
-			Name:        "no-signal-containerd",
-			Usage:       "Do not signal containerd to reload the configuration",
-			Destination: &noSignalContainerd,
-			Hidden:      true,
+		&cli.StringFlag{
+			Name:        "restart-mode",
+			Usage:       "Specify how containerd should be restarted; [signal | systemd]",
+			Value:       defaultRestartMode,
+			Destination: &restartModeFlag,
+			EnvVars:     []string{"CONTAINERD_RESTART_MODE"},
+		},
+		&cli.StringFlag{
+			Name:        "host-root",
+			Usage:       "Specify the path to the host root to be used when restarting containerd using systemd",
+			Value:       defaultHostRootMount,
+			Destination: &hostRootMountFlag,
+			EnvVars:     []string{"HOST_ROOT_MOUNT"},
 		},
 	}
 
@@ -192,9 +208,9 @@ func Setup(c *cli.Context) error {
 		return fmt.Errorf("unable to flush config: %v", err)
 	}
 
-	err = SignalContainerd()
+	err = RestartContainerd()
 	if err != nil {
-		return fmt.Errorf("unable to signal containerd: %v", err)
+		return fmt.Errorf("unable to restart containerd: %v", err)
 	}
 
 	log.Infof("Completed 'setup' for %v", c.App.Name)
@@ -236,9 +252,9 @@ func Cleanup(c *cli.Context) error {
 		return fmt.Errorf("unable to flush config: %v", err)
 	}
 
-	err = SignalContainerd()
+	err = RestartContainerd()
 	if err != nil {
-		return fmt.Errorf("unable to signal containerd: %v", err)
+		return fmt.Errorf("unable to restart containerd: %v", err)
 	}
 
 	log.Infof("Completed 'cleanup' for %v", c.App.Name)
@@ -656,13 +672,29 @@ func FlushConfig(config *toml.Tree) error {
 	return nil
 }
 
+// RestartContainerd restarts containerd depending on the value of restartModeFlag
+func RestartContainerd() error {
+	switch restartModeFlag {
+	case restartModeNone:
+		log.Warnf("Skipping sending signal to containerd due to --restart-mode=%v", restartModeFlag)
+		return nil
+	case restartModeSignal:
+		err := SignalContainerd()
+		if err != nil {
+			return fmt.Errorf("unable to signal containerd: %v", err)
+		}
+	case restartModeSystemd:
+		return RestartContainerdSystemd()
+	default:
+		return fmt.Errorf("Invalid restart mode specified: %v", restartModeFlag)
+	}
+
+	return nil
+}
+
 // SignalContainerd sends a SIGHUP signal to the containerd daemon
 func SignalContainerd() error {
 	log.Infof("Sending SIGHUP signal to containerd")
-	if noSignalContainerd {
-		log.Warnf("Skipping sending signal to containerd due to --no-signal-containerd")
-		return nil
-	}
 
 	// Wrap the logic to perform the SIGHUP in a function so we can retry it on failure
 	retriable := func() error {
@@ -736,6 +768,24 @@ func SignalContainerd() error {
 	}
 
 	log.Infof("Successfully signaled containerd")
+
+	return nil
+}
+
+// RestartContainerdSystemd restarts containerd using systemctl
+func RestartContainerdSystemd() error {
+	log.Infof("Restarting containerd using systemd and host root mounted at %v", hostRootMountFlag)
+
+	command := "chroot"
+	args := []string{hostRootMountFlag, "systemctl", "restart", "containerd"}
+
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error restarting containerd using systemd: %v", err)
+	}
 
 	return nil
 }
