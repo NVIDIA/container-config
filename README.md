@@ -31,6 +31,41 @@ The following table describes the behaviour for different `--runtime-name` and `
 
 These combinations also hold for the environment variables that map to the command line flags: `DOCKER_RUNTIME_NAME`, `DOCKER_SET_AS_DEFAULT`.
 
+### Containerd
+
+```bash
+containerd setup \
+    --runtime-class NAME \
+        /run/nvidia/toolkit
+```
+
+Configure the `nvidia-container-runtime` as a runtime class named `NAME`. If the `--runtime-class` flag is not specified, this runtime would be called `nvidia`. A runtime class named `nvidia-experimental` will also be configured using the `nvidia-container-runtime-experimental` OCI-compliant runtime shim.
+
+Adding the `--set-as-default` flag as follows:
+```bash
+containerd setup \
+    --runtime-class NAME \
+    --set-as-default \
+        /run/nvidia/toolkit
+```
+will set the runtime class `NAME` (or `nvidia` if not specified) as the default runtime class.
+
+**Note**: If `--runtime-class` is specified as `nvidia-experimental` explicitly and `--set-as-default` is specified, the `nvidia-experimental` runtime will be configured as the default runtime class, with the `nvidia` runtime class still configured and available for use.
+
+The following table describes the behaviour for different `--runtime-class` and `--set-as-default` flag combinations.
+| flags | installed runtime classes | default runtime class |
+| **NONE SPECIFIED** | `nvidia`, `nvidia-experimental` | **NOT SET** |
+| `--runtime-class NAME` | `NAME`, `nvidia-experimental` | **NOT SET** |
+| `--runtime-class nvidia` | `nvidia`, `nvidia-experimental` | **NOT SET** |
+| `--runtime-class nvidia-experimental` | `nvidia`, `nvidia-experimental` | **NOT SET** |
+| `--set-as-default` | `nvidia`, `nvidia-experimental` | `nvidia` |
+| `--set-as-default --runtime-class NAME` | `NAME`, `nvidia-experimental` | `NAME` |
+| `--set-as-default --runtime-class nvidia` | `nvidia`, `nvidia-experimental` | `nvidia` |
+| `--set-as-default --runtime-class nvidia-experimental` | `nvidia`, `nvidia-experimental` | `nvidia-experimental` |
+
+These combinations also hold for the environment variables that map to the command line flags.
+
+---
 ### Running toolkit tests locally
 
 ```bash

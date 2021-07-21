@@ -19,544 +19,88 @@ package main
 import (
 	"testing"
 
-	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 )
 
-func TestV1ConfigSetDefaultRuntime(t *testing.T) {
-	setAsDefaultFlag = true
-	runtimeClassFlag = "runtime-class"
-
+func TestOptions(t *testing.T) {
 	testCases := []struct {
-		containerdVersion      containerdVersion
-		expectedDefaultRuntime string
+		options                 options
+		expectedDefaultRuntime  string
+		expectedRuntimeBinaries map[string]string
 	}{
 		{
-			containerdVersion:      containerdVersion("v1.2"),
-			expectedDefaultRuntime: "",
-		},
-		{
-			containerdVersion:      containerdVersion("v1.3"),
-			expectedDefaultRuntime: "runtime-class",
-		},
-		{
-			containerdVersion:      containerdVersion("v1.4"),
-			expectedDefaultRuntime: "runtime-class",
-		},
-	}
-
-	for _, tc := range testCases {
-
-		config, _ := toml.TreeFromMap(map[string]interface{}{})
-
-		err := UpdateV1Config(config, tc.containerdVersion)
-		require.NoError(t, err)
-
-		value := config.Get("plugins.cri.containerd.default_runtime_name")
-
-		if tc.expectedDefaultRuntime == "" {
-			require.Nil(t, value)
-		} else {
-			defaultRuntimeName, ok := value.(string)
-			require.True(t, ok)
-			require.Equal(t, tc.expectedDefaultRuntime, defaultRuntimeName)
-		}
-	}
-}
-
-func TestParseVersion(t *testing.T) {
-	testCases := []struct {
-		config            map[string]interface{}
-		containerdVersion containerdVersion
-		expectedVersion   int
-	}{
-		{
-			config:            map[string]interface{}{},
-			containerdVersion: containerdVersion("v1.2"),
-			expectedVersion:   1,
-		},
-		{
-			config:            map[string]interface{}{},
-			containerdVersion: containerdVersion("v1.3"),
-			expectedVersion:   2,
-		},
-		{
-			config:            map[string]interface{}{},
-			containerdVersion: containerdVersion("v1.4"),
-			expectedVersion:   2,
-		},
-	}
-
-	for _, tc := range testCases {
-		config, err := toml.TreeFromMap(tc.config)
-		require.NoError(t, err)
-
-		version, err := ParseVersion(config, tc.containerdVersion)
-		require.NoError(t, err)
-
-		require.Equal(t, tc.expectedVersion, version)
-	}
-}
-
-func TestNewContainerdVersion(t *testing.T) {
-	testCases := []struct {
-		version  string
-		expected containerdVersion
-		isError  bool
-	}{
-		{
-			version:  "1.3",
-			expected: containerdVersion("v1.3"),
-		},
-		{
-			version:  "v1.3",
-			expected: containerdVersion("v1.3"),
-		},
-		{
-			version: "v",
-			isError: true,
-		},
-		{
-			version: "",
-			isError: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		c, err := newContainerdVersion(tc.version)
-
-		if tc.isError {
-			require.Error(t, err)
-		} else {
-			require.NoError(t, err)
-			require.Equal(t, tc.expected, c)
-		}
-	}
-}
-
-func TestUpdateV1Config(t *testing.T) {
-	const runtimeClass = "runtime-class"
-	const runtimeDir = "/test/runtime/dir"
-	runtimeClassFlag = runtimeClass
-	runtimeTypeFlag = "runtime_type"
-	runtimeDirnameArg = runtimeDir
-
-	testCases := []struct {
-		config            map[string]interface{}
-		containerdVersion containerdVersion
-		setAsDefault      bool
-		expected          map[string]interface{}
-	}{
-		{
-			config: map[string]interface{}{},
-			expected: map[string]interface{}{
-				"version": int64(1),
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-						},
-					},
-				},
+			expectedRuntimeBinaries: map[string]string{
+				"nvidia":              "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
 			},
 		},
 		{
-			config: map[string]interface{}{
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								"runc": map[string]interface{}{
-									"runtime_type":                    "runc_runtime_type",
-									"runtime_root":                    "runc_runtime_root",
-									"runtime_engine":                  "runc_runtime_engine",
-									"privileged_without_host_devices": true,
-									"options": map[string]interface{}{
-										"runc-option": "value",
-										"Runtime":     "/runc-binary",
-									},
-								},
-							},
-						},
-					},
-				},
+			options: options{
+				setAsDefault: true,
 			},
-			expected: map[string]interface{}{
-				"version": int64(1),
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								"runc": map[string]interface{}{
-									"runtime_type":                    "runc_runtime_type",
-									"runtime_root":                    "runc_runtime_root",
-									"runtime_engine":                  "runc_runtime_engine",
-									"privileged_without_host_devices": true,
-									"options": map[string]interface{}{
-										"runc-option": "value",
-										"Runtime":     "/runc-binary",
-									},
-								},
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runc_runtime_type",
-									"runtime_root":                    "runc_runtime_root",
-									"runtime_engine":                  "runc_runtime_engine",
-									"privileged_without_host_devices": true,
-									"options": map[string]interface{}{
-										"runc-option": "value",
-										"Runtime":     "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-						},
-					},
-				},
+			expectedDefaultRuntime: "nvidia",
+			expectedRuntimeBinaries: map[string]string{
+				"nvidia":              "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
 			},
 		},
 		{
-			config:            map[string]interface{}{},
-			containerdVersion: containerdVersion("v1.3"),
-			setAsDefault:      true,
-			expected: map[string]interface{}{
-				"version": int64(1),
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-							"default_runtime_name": runtimeClass,
-						},
-					},
-				},
+			options: options{
+				setAsDefault: true,
+				runtimeClass: "nvidia",
+			},
+			expectedDefaultRuntime: "nvidia",
+			expectedRuntimeBinaries: map[string]string{
+				"nvidia":              "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
 			},
 		},
 		{
-			config:            map[string]interface{}{},
-			containerdVersion: containerdVersion("v1.2"),
-			setAsDefault:      true,
-			expected: map[string]interface{}{
-				"version": int64(1),
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-							"default_runtime": map[string]interface{}{
-								"runtime_type":                    "runtime_type",
-								"runtime_root":                    "",
-								"runtime_engine":                  "",
-								"privileged_without_host_devices": false,
-								"options": map[string]interface{}{
-									"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-								},
-							},
-						},
-					},
-				},
+			options: options{
+				setAsDefault: true,
+				runtimeClass: "NAME",
+			},
+			expectedDefaultRuntime: "NAME",
+			expectedRuntimeBinaries: map[string]string{
+				"NAME":                "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
+			},
+		},
+		{
+			options: options{
+				setAsDefault: false,
+				runtimeClass: "NAME",
+			},
+			expectedRuntimeBinaries: map[string]string{
+				"NAME":                "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
+			},
+		},
+		{
+			options: options{
+				setAsDefault: true,
+				runtimeClass: "nvidia-experimental",
+			},
+			expectedDefaultRuntime: "nvidia-experimental",
+			expectedRuntimeBinaries: map[string]string{
+				"nvidia":              "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
+			},
+		},
+		{
+			options: options{
+				setAsDefault: false,
+				runtimeClass: "nvidia-experimental",
+			},
+			expectedRuntimeBinaries: map[string]string{
+				"nvidia":              "nvidia-container-runtime",
+				"nvidia-experimental": "nvidia-container-runtime-experimental",
 			},
 		},
 	}
 
 	for i, tc := range testCases {
-		config, err := toml.TreeFromMap(tc.config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		expected, err := toml.TreeFromMap(tc.expected)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		setAsDefaultFlag = tc.setAsDefault
-		err = UpdateV1Config(config, tc.containerdVersion)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		configContents, _ := toml.Marshal(config)
-		expectedContents, _ := toml.Marshal(expected)
-
-		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
-	}
-
-}
-
-func TestRevertV1Config(t *testing.T) {
-	const runtimeClass = "runtime-class"
-	runtimeClassFlag = runtimeClass
-	runtimeTypeFlag = "runtime_type"
-
-	testCases := []struct {
-		config map[string]interface {
-		}
-		expected map[string]interface{}
-	}{
-		{},
-		{
-			config: map[string]interface{}{
-				"version": int64(1),
-			},
-		},
-		{
-			config: map[string]interface{}{
-				"version": int64(1),
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			config: map[string]interface{}{
-				"version": int64(1),
-				"plugins": map[string]interface{}{
-					"cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-							"default_runtime": map[string]interface{}{
-								"runtime_type":                    "runtime_type",
-								"runtime_root":                    "",
-								"runtime_engine":                  "",
-								"privileged_without_host_devices": false,
-								"options": map[string]interface{}{
-									"Runtime": "/test/runtime/dir/nvidia-container-runtime",
-								},
-							},
-							"default_runtime_name": runtimeClass,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for i, tc := range testCases {
-		config, err := toml.TreeFromMap(tc.config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		expected, err := toml.TreeFromMap(tc.expected)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		err = RevertV1Config(config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		configContents, _ := toml.Marshal(config)
-		expectedContents, _ := toml.Marshal(expected)
-
-		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
-	}
-}
-
-func TestUpdateV2Config(t *testing.T) {
-	const runtimeClass = "runtime-class"
-	const runtimeDir = "/test/runtime/dir"
-	runtimeClassFlag = runtimeClass
-	runtimeTypeFlag = "runtime_type"
-	runtimeDirnameArg = runtimeDir
-
-	testCases := []struct {
-		config       map[string]interface{}
-		setAsDefault bool
-		expected     map[string]interface{}
-	}{
-		{
-			config: map[string]interface{}{},
-			expected: map[string]interface{}{
-				"version": int64(2),
-				"plugins": map[string]interface{}{
-					"io.containerd.grpc.v1.cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"BinaryName": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			config: map[string]interface{}{
-				"plugins": map[string]interface{}{
-					"io.containerd.grpc.v1.cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								"runc": map[string]interface{}{
-									"runtime_type":                    "runc_runtime_type",
-									"runtime_root":                    "runc_runtime_root",
-									"runtime_engine":                  "runc_runtime_engine",
-									"privileged_without_host_devices": true,
-									"options": map[string]interface{}{
-										"runc-option": "value",
-										"BinaryName":  "/runc-binary",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: map[string]interface{}{
-				"version": int64(2),
-				"plugins": map[string]interface{}{
-					"io.containerd.grpc.v1.cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								"runc": map[string]interface{}{
-									"runtime_type":                    "runc_runtime_type",
-									"runtime_root":                    "runc_runtime_root",
-									"runtime_engine":                  "runc_runtime_engine",
-									"privileged_without_host_devices": true,
-									"options": map[string]interface{}{
-										"runc-option": "value",
-										"BinaryName":  "/runc-binary",
-									},
-								},
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runc_runtime_type",
-									"runtime_root":                    "runc_runtime_root",
-									"runtime_engine":                  "runc_runtime_engine",
-									"privileged_without_host_devices": true,
-									"options": map[string]interface{}{
-										"runc-option": "value",
-										"BinaryName":  "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			config:       map[string]interface{}{},
-			setAsDefault: true,
-			expected: map[string]interface{}{
-				"version": int64(2),
-				"plugins": map[string]interface{}{
-					"io.containerd.grpc.v1.cri": map[string]interface{}{
-						"containerd": map[string]interface{}{
-							"runtimes": map[string]interface{}{
-								runtimeClass: map[string]interface{}{
-									"runtime_type":                    "runtime_type",
-									"runtime_root":                    "",
-									"runtime_engine":                  "",
-									"privileged_without_host_devices": false,
-									"options": map[string]interface{}{
-										"BinaryName": "/test/runtime/dir/nvidia-container-runtime",
-									},
-								},
-							},
-							"default_runtime_name": runtimeClass,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for i, tc := range testCases {
-		config, err := toml.TreeFromMap(tc.config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		expected, err := toml.TreeFromMap(tc.expected)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		setAsDefaultFlag = tc.setAsDefault
-		err = UpdateV2Config(config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		configContents, _ := toml.Marshal(config)
-		expectedContents, _ := toml.Marshal(expected)
-
-		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
-	}
-}
-
-func TestRevertV2Config(t *testing.T) {
-	const runtimeClass = "runtime-class"
-	runtimeClassFlag = runtimeClass
-
-	testCases := []struct {
-		config       map[string]interface{}
-		setAsDefault bool
-		expected     map[string]interface{}
-	}{
-		{},
-		{
-			config: map[string]interface{}{
-				"version": int64(2),
-			},
-		},
-	}
-
-	for i, tc := range testCases {
-		config, err := toml.TreeFromMap(tc.config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		expected, err := toml.TreeFromMap(tc.expected)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		setAsDefaultFlag = tc.setAsDefault
-		err = RevertV2Config(config)
-		require.NoError(t, err, "%d: %v", i, tc)
-
-		configContents, _ := toml.Marshal(config)
-		expectedContents, _ := toml.Marshal(expected)
-
-		require.Equal(t, string(expectedContents), string(configContents), "%d: %v", i, tc)
+		require.Equal(t, tc.expectedDefaultRuntime, tc.options.getDefaultRuntime(), "%d: %v", i, tc)
+		require.EqualValues(t, tc.expectedRuntimeBinaries, tc.options.getRuntimeBinaries(), "%d: %v", i, tc)
 	}
 }

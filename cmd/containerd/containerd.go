@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -40,7 +39,10 @@ const (
 	restartModeSystemd = "systemd"
 	restartModeNone    = "NONE"
 
-	runtimeBinary = "nvidia-container-runtime"
+	nvidiaRuntimeName               = "nvidia"
+	nvidiaRuntimeBinary             = "nvidia-container-runtime"
+	nvidiaExperimentalRuntimeName   = "nvidia-experimental"
+	nvidiaExperimentalRuntimeBinary = "nvidia-container-runtime-experimental"
 
 	defaultConfig        = "/etc/containerd/config.toml"
 	defaultSocket        = "/run/containerd/containerd.sock"
@@ -62,16 +64,27 @@ const (
 // comparisons.
 type containerdVersion string
 
-var runtimeDirnameArg string
-var configFlag string
-var socketFlag string
-var runtimeClassFlag string
-var runtimeTypeFlag string
-var setAsDefaultFlag bool
-var restartModeFlag string
-var hostRootMountFlag string
+// nvidiaRuntimeBinaries defines a map of runtime names to binary names
+var nvidiaRuntimeBinaries = map[string]string{
+	nvidiaRuntimeName:             nvidiaRuntimeBinary,
+	nvidiaExperimentalRuntimeName: nvidiaExperimentalRuntimeBinary,
+}
+
+// options stores the configuration from the command line or environment variables
+type options struct {
+	config        string
+	socket        string
+	runtimeClass  string
+	runtimeType   string
+	setAsDefault  bool
+	restartMode   string
+	hostRootMount string
+	runtimeDir    string
+}
 
 func main() {
+	options := options{}
+
 	// Create the top-level CLI
 	c := cli.NewApp()
 	c.Name = "containerd"
@@ -84,7 +97,7 @@ func main() {
 	setup.Usage = "Trigger a containerd config to be updated"
 	setup.ArgsUsage = "<runtime_dirname>"
 	setup.Action = func(c *cli.Context) error {
-		return Setup(c)
+		return Setup(c, &options)
 	}
 
 	// Create the 'cleanup' subcommand
@@ -93,7 +106,7 @@ func main() {
 	cleanup.Usage = "Trigger any updates made to a containerd config to be undone"
 	cleanup.ArgsUsage = "<runtime_dirname>"
 	cleanup.Action = func(c *cli.Context) error {
-		return Cleanup(c)
+		return Cleanup(c, &options)
 	}
 
 	// Register the subcommands with the top-level CLI
@@ -112,7 +125,7 @@ func main() {
 			Aliases:     []string{"c"},
 			Usage:       "Path to the containerd config file",
 			Value:       defaultConfig,
-			Destination: &configFlag,
+			Destination: &options.config,
 			EnvVars:     []string{"CONTAINERD_CONFIG"},
 		},
 		&cli.StringFlag{
@@ -120,7 +133,7 @@ func main() {
 			Aliases:     []string{"s"},
 			Usage:       "Path to the containerd socket file",
 			Value:       defaultSocket,
-			Destination: &socketFlag,
+			Destination: &options.socket,
 			EnvVars:     []string{"CONTAINERD_SOCKET"},
 		},
 		&cli.StringFlag{
@@ -128,14 +141,14 @@ func main() {
 			Aliases:     []string{"r"},
 			Usage:       "The name of the runtime class to set for the nvidia-container-runtime",
 			Value:       defaultRuntimeClass,
-			Destination: &runtimeClassFlag,
+			Destination: &options.runtimeClass,
 			EnvVars:     []string{"CONTAINERD_RUNTIME_CLASS"},
 		},
 		&cli.StringFlag{
 			Name:        "runtime-type",
 			Usage:       "The runtime_type to use for the configured runtime classes",
 			Value:       defaultRuntmeType,
-			Destination: &runtimeTypeFlag,
+			Destination: &options.runtimeType,
 			EnvVars:     []string{"CONTAINERD_RUNTIME_TYPE"},
 		},
 		// The flags below are only used by the 'setup' command.
@@ -144,7 +157,7 @@ func main() {
 			Aliases:     []string{"d"},
 			Usage:       "Set nvidia-container-runtime as the default runtime",
 			Value:       defaultSetAsDefault,
-			Destination: &setAsDefaultFlag,
+			Destination: &options.setAsDefault,
 			EnvVars:     []string{"CONTAINERD_SET_AS_DEFAULT"},
 			Hidden:      true,
 		},
@@ -152,14 +165,14 @@ func main() {
 			Name:        "restart-mode",
 			Usage:       "Specify how containerd should be restarted; [signal | systemd]",
 			Value:       defaultRestartMode,
-			Destination: &restartModeFlag,
+			Destination: &options.restartMode,
 			EnvVars:     []string{"CONTAINERD_RESTART_MODE"},
 		},
 		&cli.StringFlag{
 			Name:        "host-root",
 			Usage:       "Specify the path to the host root to be used when restarting containerd using systemd",
 			Value:       defaultHostRootMount,
-			Destination: &hostRootMountFlag,
+			Destination: &options.hostRootMount,
 			EnvVars:     []string{"HOST_ROOT_MOUNT"},
 		},
 	}
@@ -175,40 +188,41 @@ func main() {
 }
 
 // Setup updates a containerd configuration to include the nvidia-containerd-runtime and reloads it
-func Setup(c *cli.Context) error {
+func Setup(c *cli.Context, o *options) error {
 	log.Infof("Starting 'setup' for %v", c.App.Name)
 
-	err := ParseArgs(c)
+	runtimeDir, err := ParseArgs(c)
 	if err != nil {
 		return fmt.Errorf("unable to parse args: %v", err)
 	}
+	o.runtimeDir = runtimeDir
 
-	config, err := LoadConfig()
+	cfg, err := LoadConfig(o.config)
 	if err != nil {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	containerdVersion, err := getContainerdVersion(c.Context)
+	containerdVersion, err := getContainerdVersion(c.Context, o.socket)
 	if err != nil {
 		return fmt.Errorf("unable to get containerd version: %v", err)
 	}
 
-	version, err := ParseVersion(config, containerdVersion)
+	version, err := ParseVersion(cfg, containerdVersion)
 	if err != nil {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
 
-	err = UpdateConfig(config, version, containerdVersion)
+	err = UpdateConfig(cfg, o, version, containerdVersion)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
 
-	err = FlushConfig(config)
+	err = FlushConfig(o.config, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to flush config: %v", err)
 	}
 
-	err = RestartContainerd()
+	err = RestartContainerd(o)
 	if err != nil {
 		return fmt.Errorf("unable to restart containerd: %v", err)
 	}
@@ -219,40 +233,40 @@ func Setup(c *cli.Context) error {
 }
 
 // Cleanup reverts a containerd configuration to remove the nvidia-containerd-runtime and reloads it
-func Cleanup(c *cli.Context) error {
+func Cleanup(c *cli.Context, o *options) error {
 	log.Infof("Starting 'cleanup' for %v", c.App.Name)
 
-	err := ParseArgs(c)
+	_, err := ParseArgs(c)
 	if err != nil {
 		return fmt.Errorf("unable to parse args: %v", err)
 	}
 
-	config, err := LoadConfig()
+	cfg, err := LoadConfig(o.config)
 	if err != nil {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	containerdVersion, err := getContainerdVersion(c.Context)
+	containerdVersion, err := getContainerdVersion(c.Context, o.socket)
 	if err != nil {
 		return fmt.Errorf("unable to get containerd version: %v", err)
 	}
 
-	version, err := ParseVersion(config, containerdVersion)
+	version, err := ParseVersion(cfg, containerdVersion)
 	if err != nil {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
 
-	err = RevertConfig(config, version)
+	err = RevertConfig(cfg, o, version)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
 
-	err = FlushConfig(config)
+	err = FlushConfig(o.config, cfg)
 	if err != nil {
 		return fmt.Errorf("unable to flush config: %v", err)
 	}
 
-	err = RestartContainerd()
+	err = RestartContainerd(o)
 	if err != nil {
 		return fmt.Errorf("unable to restart containerd: %v", err)
 	}
@@ -263,42 +277,42 @@ func Cleanup(c *cli.Context) error {
 }
 
 // ParseArgs parses the command line arguments to the CLI
-func ParseArgs(c *cli.Context) error {
+func ParseArgs(c *cli.Context) (string, error) {
 	args := c.Args()
 
 	log.Infof("Parsing arguments: %v", args.Slice())
 	if args.Len() != 1 {
-		return fmt.Errorf("incorrect number of arguments")
+		return "", fmt.Errorf("incorrect number of arguments")
 	}
-	runtimeDirnameArg = args.Get(0)
+	runtimeDir := args.Get(0)
 	log.Infof("Successfully parsed arguments")
 
-	return nil
+	return runtimeDir, nil
 }
 
 // LoadConfig loads the containerd config from disk
-func LoadConfig() (*toml.Tree, error) {
-	log.Infof("Loading config: %v", configFlag)
+func LoadConfig(config string) (*toml.Tree, error) {
+	log.Infof("Loading config: %v", config)
 
-	info, err := os.Stat(configFlag)
+	info, err := os.Stat(config)
 	if os.IsExist(err) && info.IsDir() {
 		return nil, fmt.Errorf("config file is a directory")
 	}
 
-	configFile := configFlag
+	configFile := config
 	if os.IsNotExist(err) {
 		configFile = "/dev/null"
 		log.Infof("Config file does not exist, creating new one")
 	}
 
-	config, err := toml.LoadFile(configFile)
+	cfg, err := toml.LoadFile(configFile)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Infof("Successfully loaded config")
 
-	return config, nil
+	return cfg, nil
 }
 
 // ParseVersion parses the version field out of the containerd config
@@ -330,15 +344,15 @@ func ParseVersion(config *toml.Tree, containerdVersion containerdVersion) (int, 
 }
 
 // UpdateConfig updates the containerd config to include the nvidia-container-runtime
-func UpdateConfig(config *toml.Tree, version int, containerdVersion containerdVersion) error {
+func UpdateConfig(config *toml.Tree, o *options, version int, containerdVersion containerdVersion) error {
 	var err error
 
 	log.Infof("Updating config")
 	switch version {
 	case 1:
-		err = UpdateV1Config(config, containerdVersion)
+		err = UpdateV1Config(config, o, containerdVersion)
 	case 2:
-		err = UpdateV2Config(config)
+		err = UpdateV2Config(config, o)
 	default:
 		err = fmt.Errorf("unsupported containerd config version: %v", version)
 	}
@@ -351,15 +365,15 @@ func UpdateConfig(config *toml.Tree, version int, containerdVersion containerdVe
 }
 
 // RevertConfig reverts the containerd config to remove the nvidia-container-runtime
-func RevertConfig(config *toml.Tree, version int) error {
+func RevertConfig(config *toml.Tree, o *options, version int) error {
 	var err error
 
 	log.Infof("Reverting config")
 	switch version {
 	case 1:
-		err = RevertV1Config(config)
+		err = RevertV1Config(config, o)
 	case 2:
-		err = RevertV2Config(config)
+		err = RevertV2Config(config, o)
 	default:
 		err = fmt.Errorf("unsupported containerd config version: %v", version)
 	}
@@ -372,292 +386,49 @@ func RevertConfig(config *toml.Tree, version int) error {
 }
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
-func UpdateV1Config(config *toml.Tree, containerdVersion containerdVersion) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
-
-	// We ensure that the version is set to 1. This handles the case where the config was empty and
-	// the config version was determined from the containerd version.
-	config.Set("version", int64(1))
-
-	runcPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		"runc",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		runtimeClassFlag,
-	}
-	runtimeClassOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		runtimeClassFlag,
-		"options",
-	}
-	defaultRuntimePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-	}
-	defaultRuntimeOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-		"options",
-	}
-	defaultRuntimeNamePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime_name",
-	}
-
-	switch runc := config.GetPath(runcPath).(type) {
-	case *toml.Tree:
-		runc, _ = toml.Load(runc.String())
-		config.SetPath(runtimeClassPath, runc)
-	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeFlag)
-		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
-		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
-		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(runtimeClassOptionsPath, "Runtime"), runtimePath)
-
-	if !setAsDefaultFlag {
-		return nil
-	}
-
-	if containerdVersion.atLeast(containerdVersion1dot3) {
-		config.SetPath(defaultRuntimeNamePath, runtimeClassFlag)
-		if config.GetPath(defaultRuntimePath) != nil {
-			log.Warnf("The setting of default_runtime (%v) in containerd is deprecated", defaultRuntimePath)
-		}
-		return nil
-	}
-
-	log.Warnf("Support for containerd version %v is deprecated", containerdVersion1dot3)
-	if config.GetPath(defaultRuntimePath) == nil {
-		config.SetPath(append(defaultRuntimePath, "runtime_type"), runtimeTypeFlag)
-		config.SetPath(append(defaultRuntimePath, "runtime_root"), "")
-		config.SetPath(append(defaultRuntimePath, "runtime_engine"), "")
-		config.SetPath(append(defaultRuntimePath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(defaultRuntimeOptionsPath, "Runtime"), runtimePath)
-
-	return nil
+func UpdateV1Config(config *toml.Tree, o *options, containerdVersion containerdVersion) error {
+	c := newConfigV1(config, containerdVersion)
+	return c.Update(o)
 }
 
 // RevertV1Config performs a revert specific to v1 of the containerd config
-func RevertV1Config(config *toml.Tree) error {
-	runtimeClassPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"runtimes",
-		runtimeClassFlag,
-	}
-	defaultRuntimePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-	}
-	defaultRuntimeOptionsPath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime",
-		"options",
-	}
-	defaultRuntimeNamePath := []string{
-		"plugins",
-		"cri",
-		"containerd",
-		"default_runtime_name",
-	}
-
-	config.DeletePath(runtimeClassPath)
-	if runtime, ok := config.GetPath(append(defaultRuntimeOptionsPath, "Runtime")).(string); ok {
-		if runtimeBinary == path.Base(runtime) {
-			config.DeletePath(append(defaultRuntimeOptionsPath, "Runtime"))
-		}
-	}
-
-	if defaultRuntimeName, ok := config.GetPath(defaultRuntimeNamePath).(string); ok {
-		if runtimeClassFlag == defaultRuntimeName {
-			config.DeletePath(defaultRuntimeNamePath)
-		}
-	}
-
-	for i := 0; i < len(runtimeClassPath); i++ {
-		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
-			}
-		}
-	}
-
-	if options, ok := config.GetPath(defaultRuntimeOptionsPath).(*toml.Tree); ok {
-		if len(options.Keys()) == 0 {
-			config.DeletePath(defaultRuntimeOptionsPath)
-		}
-	}
-
-	if runtime, ok := config.GetPath(defaultRuntimePath).(*toml.Tree); ok {
-		fields := []string{"runtime_type", "runtime_root", "runtime_engine", "privileged_without_host_devices"}
-		if len(runtime.Keys()) <= len(fields) {
-			matches := []string{}
-			for _, f := range fields {
-				e := runtime.Get(f)
-				if e != nil {
-					matches = append(matches, f)
-				}
-			}
-			if len(matches) == len(runtime.Keys()) {
-				for _, m := range matches {
-					runtime.Delete(m)
-				}
-			}
-		}
-	}
-
-	for i := 0; i < len(defaultRuntimePath); i++ {
-		if runtimes, ok := config.GetPath(defaultRuntimePath[:len(defaultRuntimePath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(defaultRuntimePath[:len(defaultRuntimePath)-i])
-			}
-		}
-	}
-
-	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
-		config.Delete("version")
-	}
-
-	return nil
+func RevertV1Config(config *toml.Tree, o *options) error {
+	c := newConfigV1(config, "")
+	return c.Revert(o)
 }
 
 // UpdateV2Config performs an update specific to v2 of the containerd config
-func UpdateV2Config(config *toml.Tree) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
-
-	// We ensure that the version is set to 2. This handles the case where the config was empty and
-	// the config version was determined from the containerd version.
-	config.Set("version", int64(2))
-
-	containerdPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-	}
-	runcPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		"runc",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		runtimeClassFlag,
-	}
-	runtimeClassOptionsPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		runtimeClassFlag,
-		"options",
-	}
-
-	switch runc := config.GetPath(runcPath).(type) {
-	case *toml.Tree:
-		runc, _ = toml.Load(runc.String())
-		config.SetPath(runtimeClassPath, runc)
-	default:
-		config.SetPath(append(runtimeClassPath, "runtime_type"), runtimeTypeFlag)
-		config.SetPath(append(runtimeClassPath, "runtime_root"), "")
-		config.SetPath(append(runtimeClassPath, "runtime_engine"), "")
-		config.SetPath(append(runtimeClassPath, "privileged_without_host_devices"), false)
-	}
-	config.SetPath(append(runtimeClassOptionsPath, "BinaryName"), runtimePath)
-
-	if setAsDefaultFlag {
-		config.SetPath(append(containerdPath, "default_runtime_name"), runtimeClassFlag)
-	}
-
-	return nil
+func UpdateV2Config(config *toml.Tree, o *options) error {
+	c := newConfigV2(config)
+	return c.Update(o)
 }
 
 // RevertV2Config performs a revert specific to v2 of the containerd config
-func RevertV2Config(config *toml.Tree) error {
-	containerdPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-	}
-	runtimeClassPath := []string{
-		"plugins",
-		"io.containerd.grpc.v1.cri",
-		"containerd",
-		"runtimes",
-		runtimeClassFlag,
-	}
-
-	config.DeletePath(runtimeClassPath)
-	if runtime, ok := config.GetPath(append(containerdPath, "default_runtime_name")).(string); ok {
-		if runtimeClassFlag == runtime {
-			config.DeletePath(append(containerdPath, "default_runtime_name"))
-		}
-	}
-
-	for i := 0; i < len(runtimeClassPath); i++ {
-		if runtimes, ok := config.GetPath(runtimeClassPath[:len(runtimeClassPath)-i]).(*toml.Tree); ok {
-			if len(runtimes.Keys()) == 0 {
-				config.DeletePath(runtimeClassPath[:len(runtimeClassPath)-i])
-			}
-		}
-	}
-
-	if len(config.Keys()) == 1 && config.Keys()[0] == "version" {
-		config.Delete("version")
-	}
-
-	return nil
+func RevertV2Config(config *toml.Tree, o *options) error {
+	c := newConfigV2(config)
+	return c.Revert(o)
 }
 
 // FlushConfig flushes the updated/reverted config out to disk
-func FlushConfig(config *toml.Tree) error {
+func FlushConfig(config string, cfg *toml.Tree) error {
 	log.Infof("Flushing config")
 
-	output, err := config.ToTomlString()
+	output, err := cfg.ToTomlString()
 	if err != nil {
 		return fmt.Errorf("unable to convert to TOML: %v", err)
 	}
 
 	switch len(output) {
 	case 0:
-		err := os.Remove(configFlag)
+		err := os.Remove(config)
 		if err != nil {
 			return fmt.Errorf("unable to remove empty file: %v", err)
 		}
 		log.Infof("Config empty, removing file")
 	default:
-		f, err := os.Create(configFlag)
+		f, err := os.Create(config)
 		if err != nil {
-			return fmt.Errorf("unable to open '%v' for writing: %v", configFlag, err)
+			return fmt.Errorf("unable to open '%v' for writing: %v", config, err)
 		}
 		defer f.Close()
 
@@ -673,32 +444,32 @@ func FlushConfig(config *toml.Tree) error {
 }
 
 // RestartContainerd restarts containerd depending on the value of restartModeFlag
-func RestartContainerd() error {
-	switch restartModeFlag {
+func RestartContainerd(o *options) error {
+	switch o.restartMode {
 	case restartModeNone:
-		log.Warnf("Skipping sending signal to containerd due to --restart-mode=%v", restartModeFlag)
+		log.Warnf("Skipping sending signal to containerd due to --restart-mode=%v", o.restartMode)
 		return nil
 	case restartModeSignal:
-		err := SignalContainerd()
+		err := SignalContainerd(o)
 		if err != nil {
 			return fmt.Errorf("unable to signal containerd: %v", err)
 		}
 	case restartModeSystemd:
-		return RestartContainerdSystemd()
+		return RestartContainerdSystemd(o.hostRootMount)
 	default:
-		return fmt.Errorf("Invalid restart mode specified: %v", restartModeFlag)
+		return fmt.Errorf("Invalid restart mode specified: %v", o.restartMode)
 	}
 
 	return nil
 }
 
 // SignalContainerd sends a SIGHUP signal to the containerd daemon
-func SignalContainerd() error {
+func SignalContainerd(o *options) error {
 	log.Infof("Sending SIGHUP signal to containerd")
 
 	// Wrap the logic to perform the SIGHUP in a function so we can retry it on failure
 	retriable := func() error {
-		conn, err := net.Dial("unix", socketFlag)
+		conn, err := net.Dial("unix", o.socket)
 		if err != nil {
 			return fmt.Errorf("unable to dial: %v", err)
 		}
@@ -773,11 +544,11 @@ func SignalContainerd() error {
 }
 
 // RestartContainerdSystemd restarts containerd using systemctl
-func RestartContainerdSystemd() error {
-	log.Infof("Restarting containerd using systemd and host root mounted at %v", hostRootMountFlag)
+func RestartContainerdSystemd(hostRootMount string) error {
+	log.Infof("Restarting containerd using systemd and host root mounted at %v", hostRootMount)
 
 	command := "chroot"
-	args := []string{hostRootMountFlag, "systemctl", "restart", "containerd"}
+	args := []string{hostRootMount, "systemctl", "restart", "containerd"}
 
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
@@ -791,8 +562,8 @@ func RestartContainerdSystemd() error {
 }
 
 // getContainerdVersion returns the version of containerd running
-func getContainerdVersion(ctx context.Context) (containerdVersion, error) {
-	client, err := containerd.New(socketFlag)
+func getContainerdVersion(ctx context.Context, socket string) (containerdVersion, error) {
+	client, err := containerd.New(socket)
 	if err != nil {
 		return "", err
 	}
@@ -827,4 +598,37 @@ func newContainerdVersion(version string) (containerdVersion, error) {
 
 func (v containerdVersion) atLeast(version string) bool {
 	return semver.Compare(string(v), version) >= 0
+}
+
+// getDefaultRuntime returns the default runtime for the configured options.
+// If the configuration is invalid or the default runtimes should not be set
+// the empty string is returned.
+func (o options) getDefaultRuntime() string {
+	if o.setAsDefault {
+		if o.runtimeClass == nvidiaExperimentalRuntimeName {
+			return nvidiaExperimentalRuntimeName
+		}
+		if o.runtimeClass == "" {
+			return defaultRuntimeClass
+		}
+		return o.runtimeClass
+	}
+	return ""
+}
+
+// getRuntimeBinaries returns a map of runtime names to binary paths. This includes the
+// renaming of the `nvidia` runtime as per the --runtime-class command line flag.
+func (o options) getRuntimeBinaries() map[string]string {
+	runtimeBinaries := make(map[string]string)
+
+	for rt, bin := range nvidiaRuntimeBinaries {
+		runtime := rt
+		if o.runtimeClass != "" && o.runtimeClass != nvidiaExperimentalRuntimeName && runtime == defaultRuntimeClass {
+			runtime = o.runtimeClass
+		}
+
+		runtimeBinaries[runtime] = filepath.Join(o.runtimeDir, bin)
+	}
+
+	return runtimeBinaries
 }
