@@ -1,3 +1,19 @@
+/**
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+*/
+
 package main
 
 import (
@@ -16,12 +32,16 @@ import (
 )
 
 const (
-	runtimeName   = "nvidia"
-	runtimeBinary = "nvidia-container-runtime"
+	nvidiaRuntimeName               = "nvidia"
+	nvidiaRuntimeBinary             = "nvidia-container-runtime"
+	nvidiaExperimentalRuntimeName   = "nvidia-experimental"
+	nvidiaExperimentalRuntimeBinary = "nvidia-container-runtime-experimental"
 
 	defaultConfig       = "/etc/docker/daemon.json"
 	defaultSocket       = "/var/run/docker.sock"
 	defaultSetAsDefault = true
+	// defaultRuntimeName specifies the NVIDIA runtime to be use as the default runtime if setting the default runtime is enabled
+	defaultRuntimeName = nvidiaRuntimeName
 
 	reloadBackoff     = 5 * time.Second
 	maxReloadAttempts = 6
@@ -30,12 +50,24 @@ const (
 	socketMessageToGetPID = "GET /info HTTP/1.0\r\n\r\n"
 )
 
-var runtimeDirnameArg string
-var configFlag string
-var socketFlag string
-var setAsDefaultFlag bool
+// nvidiaRuntimeBinaries defines a map of runtime names to binary names
+var nvidiaRuntimeBinaries = map[string]string{
+	nvidiaRuntimeName:             nvidiaRuntimeBinary,
+	nvidiaExperimentalRuntimeName: nvidiaExperimentalRuntimeBinary,
+}
+
+// options stores the configuration from the command line or environment variables
+type options struct {
+	config       string
+	socket       string
+	runtimeName  string
+	setAsDefault bool
+	runtimeDir   string
+}
 
 func main() {
+	options := options{}
+
 	// Create the top-level CLI
 	c := cli.NewApp()
 	c.Name = "docker"
@@ -48,7 +80,7 @@ func main() {
 	setup.Usage = "Trigger docker config to be updated"
 	setup.ArgsUsage = "<runtime_dirname>"
 	setup.Action = func(c *cli.Context) error {
-		return Setup(c)
+		return Setup(c, &options)
 	}
 
 	// Create the 'cleanup' subcommand
@@ -57,7 +89,7 @@ func main() {
 	cleanup.Usage = "Trigger any updates made to docker config to be undone"
 	cleanup.ArgsUsage = "<runtime_dirname>"
 	cleanup.Action = func(c *cli.Context) error {
-		return Cleanup(c)
+		return Cleanup(c, &options)
 	}
 
 	// Register the subcommands with the top-level CLI
@@ -76,7 +108,7 @@ func main() {
 			Aliases:     []string{"c"},
 			Usage:       "Path to docker config file",
 			Value:       defaultConfig,
-			Destination: &configFlag,
+			Destination: &options.config,
 			EnvVars:     []string{"DOCKER_CONFIG"},
 		},
 		&cli.StringFlag{
@@ -84,16 +116,24 @@ func main() {
 			Aliases:     []string{"s"},
 			Usage:       "Path to the docker socket file",
 			Value:       defaultSocket,
-			Destination: &socketFlag,
+			Destination: &options.socket,
 			EnvVars:     []string{"DOCKER_SOCKET"},
 		},
 		// The flags below are only used by the 'setup' command.
+		&cli.StringFlag{
+			Name:        "runtime-name",
+			Aliases:     []string{"r"},
+			Usage:       "Specify the name of the `nvidia` runtime. If set-as-default is selected, the runtime is used as the default runtime.",
+			Value:       defaultRuntimeName,
+			Destination: &options.runtimeName,
+			EnvVars:     []string{"DOCKER_RUNTIME_NAME"},
+		},
 		&cli.BoolFlag{
 			Name:        "set-as-default",
 			Aliases:     []string{"d"},
-			Usage:       "Set nvidia as the default runtime",
+			Usage:       "Set the `nvidia` runtime as the default runtime. If --runtime-name is specified as `nvidia-experimental` the experimental runtime is set as the default runtime instead",
 			Value:       defaultSetAsDefault,
-			Destination: &setAsDefaultFlag,
+			Destination: &options.setAsDefault,
 			EnvVars:     []string{"DOCKER_SET_AS_DEFAULT"},
 			Hidden:      true,
 		},
@@ -105,35 +145,37 @@ func main() {
 
 	// Run the top-level CLI
 	if err := c.Run(os.Args); err != nil {
-		log.Fatal(fmt.Errorf("Error: %v", err))
+		log.Errorf("Error running docker configuration: %v", err)
+		os.Exit(1)
 	}
 }
 
 // Setup updates docker configuration to include the nvidia runtime and reloads it
-func Setup(c *cli.Context) error {
+func Setup(c *cli.Context, o *options) error {
 	log.Infof("Starting 'setup' for %v", c.App.Name)
 
-	err := ParseArgs(c)
+	runtimeDir, err := ParseArgs(c)
 	if err != nil {
 		return fmt.Errorf("unable to parse args: %v", err)
 	}
+	o.runtimeDir = runtimeDir
 
-	config, err := LoadConfig()
+	cfg, err := LoadConfig(o.config)
 	if err != nil {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	err = UpdateConfig(config)
+	err = UpdateConfig(cfg, o)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
 
-	err = FlushConfig(config)
+	err = FlushConfig(cfg, o.config)
 	if err != nil {
 		return fmt.Errorf("unable to flush config: %v", err)
 	}
 
-	err = SignalDocker()
+	err = SignalDocker(o.socket)
 	if err != nil {
 		return fmt.Errorf("unable to signal docker: %v", err)
 	}
@@ -144,30 +186,30 @@ func Setup(c *cli.Context) error {
 }
 
 // Cleanup reverts docker configuration to remove the nvidia runtime and reloads it
-func Cleanup(c *cli.Context) error {
+func Cleanup(c *cli.Context, o *options) error {
 	log.Infof("Starting 'cleanup' for %v", c.App.Name)
 
-	err := ParseArgs(c)
+	_, err := ParseArgs(c)
 	if err != nil {
 		return fmt.Errorf("unable to parse args: %v", err)
 	}
 
-	config, err := LoadConfig()
+	cfg, err := LoadConfig(o.config)
 	if err != nil {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	err = RevertConfig(config)
+	err = RevertConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
 
-	err = FlushConfig(config)
+	err = FlushConfig(cfg, o.config)
 	if err != nil {
 		return fmt.Errorf("unable to flush config: %v", err)
 	}
 
-	err = SignalDocker()
+	err = SignalDocker(o.socket)
 	if err != nil {
 		return fmt.Errorf("unable to signal docker: %v", err)
 	}
@@ -178,62 +220,64 @@ func Cleanup(c *cli.Context) error {
 }
 
 // ParseArgs parses the command line arguments to the CLI
-func ParseArgs(c *cli.Context) error {
+func ParseArgs(c *cli.Context) (string, error) {
 	args := c.Args()
 
 	log.Infof("Parsing arguments: %v", args.Slice())
 	if args.Len() != 1 {
-		return fmt.Errorf("incorrect number of arguments")
+		return "", fmt.Errorf("incorrect number of arguments")
 	}
-	runtimeDirnameArg = args.Get(0)
+	runtimeDir := args.Get(0)
 	log.Infof("Successfully parsed arguments")
 
-	return nil
+	return runtimeDir, nil
 }
 
 // LoadConfig loads the docker config from disk
-func LoadConfig() (map[string]interface{}, error) {
-	log.Infof("Loading config: %v", configFlag)
+func LoadConfig(config string) (map[string]interface{}, error) {
+	log.Infof("Loading config: %v", config)
 
-	info, err := os.Stat(configFlag)
+	info, err := os.Stat(config)
 	if os.IsExist(err) && info.IsDir() {
 		return nil, fmt.Errorf("config file is a directory")
 	}
 
-	config := make(map[string]interface{})
+	cfg := make(map[string]interface{})
 
 	if os.IsNotExist(err) {
 		log.Infof("Config file does not exist, creating new one")
-		return config, nil
+		return cfg, nil
 	}
 
-	readBytes, err := ioutil.ReadFile(configFlag)
+	readBytes, err := ioutil.ReadFile(config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read config: %v", err)
 	}
 
 	reader := bytes.NewReader(readBytes)
-	if err := json.NewDecoder(reader).Decode(&config); err != nil {
+	if err := json.NewDecoder(reader).Decode(&cfg); err != nil {
 		return nil, err
 	}
 
 	log.Infof("Successfully loaded config")
-	return config, nil
+	return cfg, nil
 }
 
-// UpdateConfig updates the docker config to include the nvidia runtime
-func UpdateConfig(config map[string]interface{}) error {
-	runtimePath := filepath.Join(runtimeDirnameArg, runtimeBinary)
-
-	if setAsDefaultFlag {
-		config["default-runtime"] = runtimeName
+// UpdateConfig updates the docker config to include the nvidia runtimes
+func UpdateConfig(config map[string]interface{}, o *options) error {
+	defaultRuntime := o.getDefaultRuntime()
+	if defaultRuntime != "" {
+		config["default-runtime"] = defaultRuntime
 	}
 
 	runtimes := make(map[string]interface{})
 	if _, exists := config["runtimes"]; exists {
 		runtimes = config["runtimes"].(map[string]interface{})
 	}
-	runtimes[runtimeName] = map[string]interface{}{"path": runtimePath, "args": []string{}}
+
+	for name, rt := range o.runtimes() {
+		runtimes[name] = rt
+	}
 
 	config["runtimes"] = runtimes
 	return nil
@@ -242,14 +286,18 @@ func UpdateConfig(config map[string]interface{}) error {
 //RevertConfig reverts the docker config to remove the nvidia runtime
 func RevertConfig(config map[string]interface{}) error {
 	if _, exists := config["default-runtime"]; exists {
-		if config["default-runtime"] == runtimeName {
+		defaultRuntime := config["default-runtime"].(string)
+		if _, exists := nvidiaRuntimeBinaries[defaultRuntime]; exists {
 			config["default-runtime"] = defaultDockerRuntime
 		}
 	}
 
 	if _, exists := config["runtimes"]; exists {
 		runtimes := config["runtimes"].(map[string]interface{})
-		delete(runtimes, runtimeName)
+
+		for name := range nvidiaRuntimeBinaries {
+			delete(runtimes, name)
+		}
 
 		if len(runtimes) == 0 {
 			delete(config, "runtimes")
@@ -259,25 +307,25 @@ func RevertConfig(config map[string]interface{}) error {
 }
 
 // FlushConfig flushes the updated/reverted config out to disk
-func FlushConfig(config map[string]interface{}) error {
+func FlushConfig(cfg map[string]interface{}, config string) error {
 	log.Infof("Flushing config")
 
-	output, err := json.MarshalIndent(config, "", "    ")
+	output, err := json.MarshalIndent(cfg, "", "    ")
 	if err != nil {
 		return fmt.Errorf("unable to convert to JSON: %v", err)
 	}
 
 	switch len(output) {
 	case 0:
-		err := os.Remove(configFlag)
+		err := os.Remove(config)
 		if err != nil {
 			return fmt.Errorf("unable to remove empty file: %v", err)
 		}
 		log.Infof("Config empty, removing file")
 	default:
-		f, err := os.Create(configFlag)
+		f, err := os.Create(config)
 		if err != nil {
-			return fmt.Errorf("unable to open %v for writing: %v", configFlag, err)
+			return fmt.Errorf("unable to open %v for writing: %v", config, err)
 		}
 		defer f.Close()
 
@@ -293,12 +341,12 @@ func FlushConfig(config map[string]interface{}) error {
 }
 
 // SignalDocker sends a SIGHUP signal to docker daemon
-func SignalDocker() error {
+func SignalDocker(socket string) error {
 	log.Infof("Sending SIGHUP signal to docker")
 
 	// Wrap the logic to perform the SIGHUP in a function so we can retry it on failure
 	retriable := func() error {
-		conn, err := net.Dial("unix", socketFlag)
+		conn, err := net.Dial("unix", socket)
 		if err != nil {
 			return fmt.Errorf("unable to dial: %v", err)
 		}
@@ -370,4 +418,45 @@ func SignalDocker() error {
 	log.Infof("Successfully signaled docker")
 
 	return nil
+}
+
+// getDefaultRuntime returns the default runtime for the configured options.
+// If the configuration is invalid or the default runtimes should not be set
+// the empty string is returned.
+func (o options) getDefaultRuntime() string {
+	if o.setAsDefault == false {
+		return ""
+	}
+
+	return o.runtimeName
+}
+
+// runtimes returns the docker runtime definitions for the supported nvidia runtimes
+// for the given options. This includes the path with the options runtimeDir applied
+func (o options) runtimes() map[string]interface{} {
+	runtimes := make(map[string]interface{})
+	for r, bin := range o.getRuntimeBinaries() {
+		runtimes[r] = map[string]interface{}{
+			"path": bin,
+			"args": []string{},
+		}
+	}
+	return runtimes
+}
+
+// getRuntimeBinaries returns a map of runtime names to binary paths. This includes the
+// renaming of the `nvidia` runtime as per the --runtime-class command line flag.
+func (o options) getRuntimeBinaries() map[string]string {
+	runtimeBinaries := make(map[string]string)
+
+	for rt, bin := range nvidiaRuntimeBinaries {
+		runtime := rt
+		if o.runtimeName != "" && o.runtimeName != nvidiaExperimentalRuntimeName && runtime == defaultRuntimeName {
+			runtime = o.runtimeName
+		}
+
+		runtimeBinaries[runtime] = filepath.Join(o.runtimeDir, bin)
+	}
+
+	return runtimeBinaries
 }
