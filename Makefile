@@ -18,7 +18,7 @@
 
 ##### Global variables #####
 
-CUDA_VERSION ?= 11.3.0
+CUDA_VERSION ?= 11.4.0
 GOLANG_VERSION ?= 1.16.4
 DOCKER   ?= docker
 ifeq ($(IMAGE),)
@@ -65,6 +65,7 @@ push-short:
 
 build-ubuntu%: DOCKERFILE_SUFFIX := ubuntu
 build-ubuntu16.04: BASE_DIST := ubuntu16.04
+build-ubuntu16.04: CUDA_VERSION := 11.3.0
 build-ubuntu18.04: BASE_DIST := ubuntu18.04
 build-ubuntu20.04: BASE_DIST := ubuntu20.04
 
