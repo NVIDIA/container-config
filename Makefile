@@ -18,7 +18,7 @@
 
 ##### Global variables #####
 
-CUDA_VERSION ?= 11.4.0
+CUDA_VERSION ?= 11.4.1
 GOLANG_VERSION ?= 1.16.4
 DOCKER   ?= docker
 ifeq ($(IMAGE),)
