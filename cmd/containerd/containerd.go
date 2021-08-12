@@ -576,7 +576,7 @@ func getContainerdVersion(ctx context.Context, socket string) (containerdVersion
 
 	containerdVersion, err := newContainerdVersion(version.Version)
 	if err != nil {
-		return "", fmt.Errorf("error retrieving containerd version: %v", containerdVersion)
+		return "", fmt.Errorf("error retrieving containerd version: %v", err)
 	}
 
 	log.Infof("Containerd version is %v", containerdVersion)
