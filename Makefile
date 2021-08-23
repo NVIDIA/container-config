@@ -37,7 +37,7 @@ NVIDIA_CONTAINER_RUNTIME_EXPERIMENTAL_VERSION=experimental
 
 ##### Public rules #####
 DEFAULT_PUSH_TARGET := ubuntu18.04
-TARGETS := ubuntu20.04 ubuntu18.04 ubuntu16.04 ubi8 centos7 centos8
+TARGETS := ubuntu20.04 ubuntu18.04 ubi8 centos7 centos8
 
 PUSH_TARGETS := $(patsubst %, push-%, $(TARGETS))
 BUILD_TARGETS := $(patsubst %, build-%, $(TARGETS))
@@ -64,8 +64,6 @@ push-short:
 	$(DOCKER) push "$(IMAGE):$(VERSION)"
 
 build-ubuntu%: DOCKERFILE_SUFFIX := ubuntu
-build-ubuntu16.04: BASE_DIST := ubuntu16.04
-build-ubuntu16.04: CUDA_VERSION := 11.3.0
 build-ubuntu18.04: BASE_DIST := ubuntu18.04
 build-ubuntu20.04: BASE_DIST := ubuntu20.04
 
