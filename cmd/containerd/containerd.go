@@ -17,7 +17,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -26,12 +25,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/plugin"
 	toml "github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
-	"golang.org/x/mod/semver"
 )
 
 const (
@@ -52,17 +49,11 @@ const (
 	defaultRestartMode   = restartModeSignal
 	defaultHostRootMount = "/host"
 
-	containerdVersion1dot3 = "v1.3"
-
 	reloadBackoff     = 5 * time.Second
 	maxReloadAttempts = 6
 
 	socketMessageToGetPID = ""
 )
-
-// containerdVersion allows for methods that allow for better readability under version
-// comparisons.
-type containerdVersion string
 
 // nvidiaRuntimeBinaries defines a map of runtime names to binary names
 var nvidiaRuntimeBinaries = map[string]string{
@@ -72,14 +63,15 @@ var nvidiaRuntimeBinaries = map[string]string{
 
 // options stores the configuration from the command line or environment variables
 type options struct {
-	config        string
-	socket        string
-	runtimeClass  string
-	runtimeType   string
-	setAsDefault  bool
-	restartMode   string
-	hostRootMount string
-	runtimeDir    string
+	config          string
+	socket          string
+	runtimeClass    string
+	runtimeType     string
+	setAsDefault    bool
+	restartMode     string
+	hostRootMount   string
+	runtimeDir      string
+	useLegacyConfig bool
 }
 
 func main() {
@@ -175,6 +167,12 @@ func main() {
 			Destination: &options.hostRootMount,
 			EnvVars:     []string{"HOST_ROOT_MOUNT"},
 		},
+		&cli.BoolFlag{
+			Name:        "use-legacy-config",
+			Usage:       "Specify whether a legacy (pre v1.3) config should be used",
+			Destination: &options.useLegacyConfig,
+			EnvVars:     []string{"CONTAINERD_USE_LEGACY_CONFIG"},
+		},
 	}
 
 	// Update the subcommand flags with the common subcommand flags
@@ -202,17 +200,12 @@ func Setup(c *cli.Context, o *options) error {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	containerdVersion, err := getContainerdVersion(c.Context, o.socket)
-	if err != nil {
-		return fmt.Errorf("unable to get containerd version: %v", err)
-	}
-
-	version, err := ParseVersion(cfg, containerdVersion)
+	version, err := ParseVersion(cfg, o.useLegacyConfig)
 	if err != nil {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
 
-	err = UpdateConfig(cfg, o, version, containerdVersion)
+	err = UpdateConfig(cfg, o, version)
 	if err != nil {
 		return fmt.Errorf("unable to update config: %v", err)
 	}
@@ -246,12 +239,7 @@ func Cleanup(c *cli.Context, o *options) error {
 		return fmt.Errorf("unable to load config: %v", err)
 	}
 
-	containerdVersion, err := getContainerdVersion(c.Context, o.socket)
-	if err != nil {
-		return fmt.Errorf("unable to get containerd version: %v", err)
-	}
-
-	version, err := ParseVersion(cfg, containerdVersion)
+	version, err := ParseVersion(cfg, o.useLegacyConfig)
 	if err != nil {
 		return fmt.Errorf("unable to parse version: %v", err)
 	}
@@ -316,9 +304,9 @@ func LoadConfig(config string) (*toml.Tree, error) {
 }
 
 // ParseVersion parses the version field out of the containerd config
-func ParseVersion(config *toml.Tree, containerdVersion containerdVersion) (int, error) {
+func ParseVersion(config *toml.Tree, useLegacyConfig bool) (int, error) {
 	var defaultVersion int
-	if containerdVersion.atLeast(containerdVersion1dot3) {
+	if !useLegacyConfig {
 		defaultVersion = 2
 	} else {
 		defaultVersion = 1
@@ -344,13 +332,13 @@ func ParseVersion(config *toml.Tree, containerdVersion containerdVersion) (int, 
 }
 
 // UpdateConfig updates the containerd config to include the nvidia-container-runtime
-func UpdateConfig(config *toml.Tree, o *options, version int, containerdVersion containerdVersion) error {
+func UpdateConfig(config *toml.Tree, o *options, version int) error {
 	var err error
 
 	log.Infof("Updating config")
 	switch version {
 	case 1:
-		err = UpdateV1Config(config, o, containerdVersion)
+		err = UpdateV1Config(config, o)
 	case 2:
 		err = UpdateV2Config(config, o)
 	default:
@@ -386,14 +374,14 @@ func RevertConfig(config *toml.Tree, o *options, version int) error {
 }
 
 // UpdateV1Config performs an update specific to v1 of the containerd config
-func UpdateV1Config(config *toml.Tree, o *options, containerdVersion containerdVersion) error {
-	c := newConfigV1(config, containerdVersion)
+func UpdateV1Config(config *toml.Tree, o *options) error {
+	c := newConfigV1(config)
 	return c.Update(o)
 }
 
 // RevertV1Config performs a revert specific to v1 of the containerd config
 func RevertV1Config(config *toml.Tree, o *options) error {
-	c := newConfigV1(config, "")
+	c := newConfigV1(config)
 	return c.Revert(o)
 }
 
@@ -559,45 +547,6 @@ func RestartContainerdSystemd(hostRootMount string) error {
 	}
 
 	return nil
-}
-
-// getContainerdVersion returns the version of containerd running
-func getContainerdVersion(ctx context.Context, socket string) (containerdVersion, error) {
-	client, err := containerd.New(socket)
-	if err != nil {
-		return "", err
-	}
-	defer client.Close()
-
-	version, err := client.Version(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	containerdVersion, err := newContainerdVersion(version.Version)
-	if err != nil {
-		return "", fmt.Errorf("error retrieving containerd version: %v", err)
-	}
-
-	log.Infof("Containerd version is %v", containerdVersion)
-	return containerdVersion, nil
-}
-
-// newContainerdVersion creates a containerdVersion from the specified version string.
-func newContainerdVersion(version string) (containerdVersion, error) {
-	if semver.IsValid(version) {
-		return containerdVersion(version), nil
-	}
-
-	if version != "" && version[0] != 'v' && semver.IsValid("v"+version) {
-		return containerdVersion("v" + version), nil
-	}
-
-	return "", fmt.Errorf("%v is an invalid semantic version", version)
-}
-
-func (v containerdVersion) atLeast(version string) bool {
-	return semver.Compare(string(v), version) >= 0
 }
 
 // getDefaultRuntime returns the default runtime for the configured options.

@@ -26,10 +26,9 @@ import (
 // configV1 represents a V1 containerd config
 type configV1 struct {
 	config
-	containerdVersion containerdVersion
 }
 
-func newConfigV1(cfg *toml.Tree, containerdVersion containerdVersion) UpdateReverter {
+func newConfigV1(cfg *toml.Tree) UpdateReverter {
 	c := configV1{
 		config: config{
 			Tree:      cfg,
@@ -37,7 +36,6 @@ func newConfigV1(cfg *toml.Tree, containerdVersion containerdVersion) UpdateReve
 			cri:       "cri",
 			binaryKey: "Runtime",
 		},
-		containerdVersion: containerdVersion,
 	}
 
 	return &c
@@ -45,9 +43,10 @@ func newConfigV1(cfg *toml.Tree, containerdVersion containerdVersion) UpdateReve
 
 // Update performs an update specific to v1 of the containerd config
 func (config *configV1) Update(o *options) error {
+
 	// For v1 config, the `default_runtime_name` setting is only supported
 	// for containerd version at least v1.3
-	supportsDefaultRuntimeName := config.containerdVersion.atLeast(containerdVersion1dot3)
+	supportsDefaultRuntimeName := !o.useLegacyConfig
 
 	defaultRuntime := o.getDefaultRuntime()
 
@@ -67,7 +66,7 @@ func (config *configV1) Update(o *options) error {
 			continue
 		}
 
-		log.Warnf("Support for containerd version %v is deprecated", config.containerdVersion)
+		log.Warnf("Setting default_runtime is deprecated")
 		defaultRuntimePath := append(config.containerdPath(), "default_runtime")
 		config.initRuntime(defaultRuntimePath, o.runtimeType, runtimeBinary)
 	}
