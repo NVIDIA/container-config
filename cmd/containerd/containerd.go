@@ -328,6 +328,10 @@ func ParseVersion(config *toml.Tree, useLegacyConfig bool) (int, error) {
 	}
 	log.Infof("Config version: %v", version)
 
+	if version == 1 {
+		log.Warnf("Support for containerd config version 1 is deprecated")
+	}
+
 	return version, nil
 }
 
