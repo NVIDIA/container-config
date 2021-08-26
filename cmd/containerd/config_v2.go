@@ -23,7 +23,6 @@ import (
 // configV2 represents a V2 containerd config
 type configV2 struct {
 	config
-	containerdVersion string
 }
 
 func newConfigV2(cfg *toml.Tree) UpdateReverter {
