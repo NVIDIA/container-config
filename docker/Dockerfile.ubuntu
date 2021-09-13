@@ -40,7 +40,11 @@ COPY . .
 ARG VERSION="N/A"
 RUN go install -ldflags="-s -w -X 'main.Version=${VERSION}'" ./cmd/...
 
-FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST} as artifacts
+FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST}
+
+ENV NVIDIA_DISABLE_REQUIRE="true"
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-transport-https \
@@ -67,17 +71,6 @@ RUN /bin/bash -c " \
     nvidia-container-runtime=\${NVIDIA_CONTAINER_RUNTIME_VERSION/-/\~}-1"
 
 RUN rm -rf /var/lib/apt/lists/*
-
-FROM nvidia/cuda:${CUDA_VERSION}-base-${BASE_DIST}
-
-ENV NVIDIA_DISABLE_REQUIRE="true"
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=utility
-
-COPY --from=artifacts /usr/bin/nvidia-container-* /usr/bin/
-COPY --from=artifacts /etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/config.toml
-COPY --from=artifacts /usr/lib/x86_64-linux-gnu/libnvidia-container.so.*.* /usr/lib/x86_64-linux-gnu/
-RUN cd /usr/lib/x86_64-linux-gnu && ln -s $(ls libnvidia-container.so.*.*) libnvidia-container.so.1
 
 WORKDIR /work
 
