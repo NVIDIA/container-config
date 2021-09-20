@@ -55,6 +55,9 @@ ARG LIBNVIDIA_CONTAINER_VERSION
 ARG NVIDIA_CONTAINER_TOOLKIT_VERSION
 ARG NVIDIA_CONTAINER_RUNTIME_VERSION
 
+RUN yum-config-manager --enable libnvidia-container-experimental && \
+    yum-config-manager --enable nvidia-container-runtime-experimental
+
 RUN /bin/bash -c " \
     yum install -y procps \
     libnvidia-container1-\${LIBNVIDIA_CONTAINER_VERSION/-/-0.1.} \
