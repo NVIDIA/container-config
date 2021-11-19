@@ -27,7 +27,7 @@ IMAGE := $(REGISTRY)/container-toolkit
 endif
 
 # Must be set externally before invoking
-VERSION ?= 1.7.1
+VERSION ?= 1.7.2
 
 # Fix the versions for the toolkit components
 LIBNVIDIA_CONTAINER_VERSION=1.6.0
