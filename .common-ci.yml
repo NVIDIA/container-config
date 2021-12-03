@@ -128,6 +128,7 @@ deploy:sha-ci-ubi8:
   variables:
     # We use the CI_COMMIT_SHORT_SHA and override this for external releases
     VERSION: "${CI_COMMIT_SHORT_SHA}"
+    DOCKER: "echo [skipping] docker"
 
 # Define a staging release step that pushes an image to an internal "staging" repository
 # This is triggered for all pipelines (i.e. not only tags) to test the pipeline steps
