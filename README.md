@@ -1,6 +1,11 @@
+# Migration Notice
+
+*NOTE*: The functionality in this repository has been migrated to the [NVIDIA Container Toolkit repository](https://gitlab.com/nvidia/container-toolkit/container-toolkit).
+This includes the tooling to configure the NVIDIA Container Toolkit and runtimes in containerized environments as well as the images for the `container-toolkit` used in the NVIDIA GPU Operator.
+
 ## Introduction
 
-This repository contains tools that allow the NVIDIA runtime to be configured as one of the runtimes for Docker and containerd. 
+This repository contains tools that allow the NVIDIA runtime to be configured as one of the runtimes for Docker and containerd.
 
 ### Docker
 
