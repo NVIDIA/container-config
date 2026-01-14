@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/lookup"
+
+	"github.com/NVIDIA/container-config/internal/logger"
 )
 
 // An artifactRoot is used as a source for installed artifacts.

@@ -11,11 +11,12 @@ import (
 	"github.com/urfave/cli/v3"
 	"golang.org/x/sys/unix"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container/runtime"
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/toolkit"
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/info"
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/lookup"
+
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container/runtime"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/toolkit"
+	"github.com/NVIDIA/container-config/internal/info"
+	"github.com/NVIDIA/container-config/internal/logger"
 )
 
 const (

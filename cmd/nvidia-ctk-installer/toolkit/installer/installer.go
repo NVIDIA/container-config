@@ -25,7 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
+	"github.com/NVIDIA/container-config/internal/logger"
 )
 
 //go:generate moq -rm -fmt=goimports -out installer_mock.go . Installer

@@ -16,7 +16,7 @@
 
 package toolkit
 
-import "github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
+import "github.com/NVIDIA/container-config/internal/logger"
 
 // An Option provides a mechanism to configure an Installer.
 type Option func(*Installer)

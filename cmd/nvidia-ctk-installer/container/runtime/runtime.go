@@ -21,12 +21,12 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container"
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container/runtime/containerd"
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container/runtime/crio"
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container/runtime/docker"
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/toolkit"
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container/runtime/containerd"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container/runtime/crio"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container/runtime/docker"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/toolkit"
+	"github.com/NVIDIA/container-config/internal/logger"
 )
 
 const (

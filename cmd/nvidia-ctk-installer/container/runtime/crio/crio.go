@@ -25,12 +25,13 @@ import (
 	cli "github.com/urfave/cli/v3"
 
 	"github.com/NVIDIA/nvidia-container-toolkit/api/config/v1"
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container"
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/engine"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/engine/crio"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/ocihook"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/toml"
+
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container"
+	"github.com/NVIDIA/container-config/internal/logger"
 )
 
 const (

@@ -25,9 +25,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container/operator"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/engine"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/toml"
+
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container/operator"
 )
 
 const (

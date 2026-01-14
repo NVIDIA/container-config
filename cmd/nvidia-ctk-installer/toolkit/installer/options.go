@@ -17,7 +17,7 @@
 
 package installer
 
-import "github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
+import "github.com/NVIDIA/container-config/internal/logger"
 
 type Option func(*ToolkitInstaller)
 

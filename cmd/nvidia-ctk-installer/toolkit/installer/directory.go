@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/internal/logger"
+	"github.com/NVIDIA/container-config/internal/logger"
 )
 
 type createDirectory struct {

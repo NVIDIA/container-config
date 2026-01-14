@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	cli "github.com/urfave/cli/v3"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/cmd/nvidia-ctk-installer/container"
+	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container"
 )
 
 // TestContainerdConfigLifecycle tests the complete Setup->Cleanup lifecycle for both v1 and v2 configs.
