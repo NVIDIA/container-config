@@ -27,8 +27,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/api/config/v1"
-
 	"github.com/NVIDIA/container-config/cmd/nvidia-ctk-installer/container/operator"
 )
 
@@ -55,7 +53,7 @@ func (t *ToolkitInstaller) collectExecutables(destDir string) ([]Installer, erro
 			path:                 runtime.Path,
 			requiresKernelModule: true,
 			env: map[string]string{
-				config.FilePathOverrideEnvVar: configFilePath,
+				"NVIDIA_CTK_CONFIG_FILE_PATH": configFilePath,
 			},
 		}
 		executables = append(executables, e)
@@ -72,7 +70,7 @@ func (t *ToolkitInstaller) collectExecutables(destDir string) ([]Installer, erro
 			path:    "nvidia-container-runtime-hook",
 			symlink: "nvidia-container-toolkit",
 			env: map[string]string{
-				config.FilePathOverrideEnvVar: configFilePath,
+				"NVIDIA_CTK_CONFIG_FILE_PATH": configFilePath,
 			},
 		},
 	)

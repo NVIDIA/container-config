@@ -138,7 +138,7 @@ containerEdits:
 		t.Run(tc.description, func(t *testing.T) {
 			testRoot := t.TempDir()
 			toolkitRoot := filepath.Join(testRoot, "toolkit-test")
-			cdiOutputDir := filepath.Join(moduleRoot, "toolkit-test", "/var/cdi")
+			cdiOutputDir := filepath.Join(testRoot, "toolkit-test", "/var/cdi")
 			sourceRoot := filepath.Join(artifactRoot, tc.packageType)
 			options := Options{
 				DriverRoot:        "/host/driver/root",

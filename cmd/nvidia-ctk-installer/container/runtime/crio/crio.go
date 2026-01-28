@@ -24,7 +24,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v3"
 
-	"github.com/NVIDIA/nvidia-container-toolkit/api/config/v1"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/engine"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/engine/crio"
 	"github.com/NVIDIA/nvidia-container-toolkit/pkg/config/ocihook"
@@ -122,7 +121,7 @@ func setupHook(o *container.Options, co *Options) error {
 	log.Infof("Installing prestart hook")
 
 	hookPath := filepath.Join(co.hooksDir, co.hookFilename)
-	err := ocihook.CreateHook(hookPath, filepath.Join(o.RuntimeDir, config.NVIDIAContainerRuntimeHookExecutable))
+	err := ocihook.CreateHook(hookPath, filepath.Join(o.RuntimeDir, "nvidia-container-runtime-hook"))
 	if err != nil {
 		return fmt.Errorf("error creating hook: %v", err)
 	}
