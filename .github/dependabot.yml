@@ -1,0 +1,42 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  # main branch
+  - package-ecosystem: "gomod"
+    target-branch: main
+    directories:
+    - "/"
+    - "deployments/devel"
+    - "tests"
+    schedule:
+      interval: "daily"
+    labels:
+    - dependencies
+    groups:
+      k8sio:
+        patterns:
+        - k8s.io/*
+        exclude-patterns:
+        - k8s.io/klog/*
+
+  - package-ecosystem: "docker"
+    target-branch: main
+    directories:
+    # Application container
+    - "/deployments/container"
+    # Golang version
+    - "/deployments/devel"
+    schedule:
+      interval: "daily"
+    labels:
+    - dependencies
+
+  - package-ecosystem: "github-actions"
+    target-branch: main
+    directory: "/"
+    schedule:
+      interval: "daily"
+    labels:
+    - dependencies
