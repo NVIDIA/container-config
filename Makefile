@@ -107,7 +107,7 @@ mod-vendor: mod-tidy
 vendor: mod-vendor
 
 check-modules: | mod-tidy mod-verify mod-vendor
-	git diff --quiet HEAD -- $$(find . -name go.mod -o -name go.sum -o -name vendor)
+	git diff --exit-code HEAD -- $$(find . -name go.mod -o -name go.sum -o -name vendor)
 
 COVERAGE_FILE := coverage.out
 test: build cmds
