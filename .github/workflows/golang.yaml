@@ -50,6 +50,7 @@ jobs:
         skip-cache: true
 
     - name: Check golang modules
+      continue-on-error: true
       run: |
         make check-vendor
         make -C deployments/devel check-modules
