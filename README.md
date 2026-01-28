@@ -1,6 +1,6 @@
 # NVIDIA Container Toolkit Container
 
-[![GitHub license](https://img.shields.io/github/license/NVIDIA/nvidia-container-toolkit?style=flat-square)](https://raw.githubusercontent.com/NVIDIA/container-config/main/LICENSE)
+[![GitHub license](https://img.shields.io/github/license/NVIDIA/container-config?style=flat-square)](https://raw.githubusercontent.com/NVIDIA/container-config/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/documentation-wiki-blue.svg?style=flat-square)](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/index.html)
 
 ## Introduction
