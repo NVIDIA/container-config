@@ -37,3 +37,11 @@ jobs:
   golang:
     secrets: inherit
     uses: ./.github/workflows/golang.yaml
+
+  image:
+    uses: ./.github/workflows/image.yaml
+    needs: [variables, golang, code-scanning]
+    secrets: inherit
+    with:
+      version: ${{ needs.variables.outputs.version }}
+      build_multi_arch_images: ${{ github.ref_name == 'main' || startsWith(github.ref_name, 'release-') }}
