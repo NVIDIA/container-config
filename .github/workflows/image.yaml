@@ -36,7 +36,6 @@ jobs:
       matrix:
         target:
           - application
-          - packaging
     steps:
       - uses: actions/checkout@v6
         name: Check out code

@@ -14,14 +14,15 @@
 
 LIB_NAME := container-config
 MODULE := github.com/NVIDIA/container-config
-
 VERSION ?= v26.1.0-rc.1
-ifeq ($(IMAGE_NAME),)
-REGISTRY ?= nvidia
-IMAGE_NAME := $(REGISTRY)/container-toolkit
-endif
 
 GOLANG_VERSION := $(shell ./hack/golang-version.sh)
+PACKAGING_IMAGE ?= $(shell ./hack/packaging-image.sh)
+
+ifeq ($(IMAGE_NAME),)
+REGISTRY ?= nvcr.io/nvidia/k8s
+IMAGE_NAME := $(REGISTRY)/container-toolkit
+endif
 
 BUILDIMAGE_TAG ?= devel-go$(GOLANG_VERSION)
 BUILDIMAGE ?=  $(LIB_NAME):$(BUILDIMAGE_TAG)
