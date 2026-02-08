@@ -18,8 +18,8 @@ DOCKER_BUILD_PLATFORM_OPTIONS = --platform=linux/$(ARCH)
 
 ifeq ($(PUSH_ON_BUILD),true)
 DOCKER_BUILD_OPTIONS = --output=type=image,push=$(PUSH_ON_BUILD)
-$(BUILD_TARGETS): build-%: image-%
+build: image
 	$(DOCKER) push "$(IMAGE)"
 else
-$(BUILD_TARGETS): build-%: image-%
+build: image
 endif
